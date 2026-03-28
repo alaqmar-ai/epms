@@ -20,19 +20,18 @@ export default function FilterBar({
   groups, pics, statuses, selectedGroup, selectedPic, selectedStatus, searchQuery,
   onGroupChange, onPicChange, onStatusChange, onSearchChange,
 }: FilterBarProps) {
-  const selectClass = "bg-card border border-border rounded-md px-3 py-1.5 text-sm text-text-primary focus:border-eng transition-colors cursor-pointer";
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-4">
-      <select value={selectedGroup} onChange={(e) => onGroupChange(e.target.value)} className={selectClass}>
+    <div className="flex flex-wrap items-center gap-2.5 mb-5">
+      <select value={selectedGroup} onChange={(e) => onGroupChange(e.target.value)} className="select-styled">
         <option value="">All Groups</option>
         {groups.map((g) => <option key={g} value={g}>{g}</option>)}
       </select>
-      <select value={selectedPic} onChange={(e) => onPicChange(e.target.value)} className={selectClass}>
+      <select value={selectedPic} onChange={(e) => onPicChange(e.target.value)} className="select-styled">
         <option value="">All PICs</option>
         {pics.map((p) => <option key={p} value={p}>{p}</option>)}
       </select>
       {statuses && onStatusChange && (
-        <select value={selectedStatus || ''} onChange={(e) => onStatusChange(e.target.value)} className={selectClass}>
+        <select value={selectedStatus || ''} onChange={(e) => onStatusChange(e.target.value)} className="select-styled">
           <option value="">All Statuses</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -44,7 +43,7 @@ export default function FilterBar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search name, code, PIC..."
-          className="w-full bg-card border border-border rounded-md pl-8 pr-3 py-1.5 text-sm text-text-primary placeholder-text-muted focus:border-eng transition-colors"
+          className="input-styled w-full pl-9 pr-3"
         />
       </div>
     </div>

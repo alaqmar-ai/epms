@@ -21,7 +21,6 @@ export default function ExportPage() {
       const wb = XLSX.utils.book_new();
       const today = new Date().toISOString().split('T')[0];
 
-      // Sheet 1: Summary
       const summaryData = filtered.map((p) => ({
         'Project Code': p.code,
         'Project Name': p.name,
@@ -37,7 +36,6 @@ export default function ExportPage() {
       ws1['!cols'] = [{ wch: 14 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
       XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
 
-      // Sheet 2: Stage Details
       const stageData: Record<string, string | number | boolean>[] = [];
       filtered.forEach((p) => {
         p.stages.forEach((s, i) => {
@@ -59,7 +57,6 @@ export default function ExportPage() {
       ws2['!cols'] = [{ wch: 14 }, { wch: 25 }, { wch: 8 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }];
       XLSX.utils.book_append_sheet(wb, ws2, 'Stage Details');
 
-      // Sheet 3: Gantt Schedule
       let minDate: Date | null = null;
       let maxDate: Date | null = null;
       filtered.forEach((p) => {
@@ -112,7 +109,6 @@ export default function ExportPage() {
         XLSX.utils.book_append_sheet(wb, ws3, 'Gantt Schedule');
       }
 
-      // Sheet 4: Delay Report
       const delayData: Record<string, string | number>[] = [];
       filtered.forEach((p) => {
         p.stages.forEach((s) => {
@@ -133,7 +129,6 @@ export default function ExportPage() {
       ws4['!cols'] = [{ wch: 14 }, { wch: 25 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, ws4, 'Delay Report');
 
-      // Download
       const fileName = `EPMS_Export_${filterLabel}_${today}.xlsx`;
       XLSX.writeFile(wb, fileName);
       addToast('success', `Exported ${fileName}`);
@@ -159,64 +154,58 @@ export default function ExportPage() {
     }, 100);
   };
 
-  const selectClass = "bg-card border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:border-eng transition-colors cursor-pointer";
-
   return (
-    <div className="p-4 md:p-6 max-w-content mx-auto">
-      <h1 className="text-xl font-semibold text-text-primary mb-6">Export Data</h1>
+    <div className="p-5 md:p-8 max-w-content mx-auto">
+      <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-8">Export Data</h1>
 
       {/* Export Option Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <button
           onClick={() => handleExport('all')}
           disabled={projectsLoading || !!exporting}
-          className="bg-card border border-border rounded-md p-5 text-left hover:bg-elevated transition-colors cursor-pointer disabled:opacity-50"
-          style={{ borderLeftWidth: '3px', borderLeftColor: '#0ea5e9' }}
+          className="card p-5 text-left cursor-pointer disabled:opacity-50 group relative overflow-hidden"
         >
-          <FileSpreadsheet size={24} className="text-eng mb-2" />
+          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-blue-500 to-transparent" />
+          <FileSpreadsheet size={22} className="text-blue-400 mb-3" />
           <h3 className="text-sm font-semibold text-text-primary mb-1">Overall Export</h3>
-          <p className="text-xs text-text-muted">Export all projects with full schedule</p>
-          {exporting === 'all' && <Loader2 size={14} className="animate-spin text-eng mt-2" />}
+          <p className="text-[13px] text-text-muted">Export all projects with full schedule</p>
+          {exporting === 'all' && <Loader2 size={14} className="animate-spin text-blue-400 mt-3" />}
         </button>
 
-        <div
-          className="bg-card border border-border rounded-md p-5"
-          style={{ borderLeftWidth: '3px', borderLeftColor: '#10b981' }}
-        >
-          <Boxes size={24} className="text-success mb-2" />
+        <div className="card p-5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-emerald-500 to-transparent" />
+          <Boxes size={22} className="text-emerald-400 mb-3" />
           <h3 className="text-sm font-semibold text-text-primary mb-1">By Equipment Group</h3>
-          <p className="text-xs text-text-muted mb-3">Filter and export by equipment group</p>
+          <p className="text-[13px] text-text-muted mb-3">Filter and export by equipment group</p>
           <div className="flex gap-2">
-            <select value={exportGroup} onChange={(e) => setExportGroup(e.target.value)} className={`${selectClass} flex-1`}>
+            <select value={exportGroup} onChange={(e) => setExportGroup(e.target.value)} className="select-styled flex-1">
               <option value="">Select group</option>
               {EQUIPMENT_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
             <button
               onClick={() => handleExport('group')}
               disabled={!exportGroup || !!exporting}
-              className="bg-success hover:bg-emerald-600 text-white px-3 py-2 rounded-md text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
             >
               {exporting === 'group' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
             </button>
           </div>
         </div>
 
-        <div
-          className="bg-card border border-border rounded-md p-5"
-          style={{ borderLeftWidth: '3px', borderLeftColor: '#06b6d4' }}
-        >
-          <Users size={24} className="text-ontrack mb-2" />
+        <div className="card p-5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-cyan-500 to-transparent" />
+          <Users size={22} className="text-cyan-400 mb-3" />
           <h3 className="text-sm font-semibold text-text-primary mb-1">By PIC</h3>
-          <p className="text-xs text-text-muted mb-3">Filter and export by Person-In-Charge</p>
+          <p className="text-[13px] text-text-muted mb-3">Filter and export by Person-In-Charge</p>
           <div className="flex gap-2">
-            <select value={exportPic} onChange={(e) => setExportPic(e.target.value)} className={`${selectClass} flex-1`}>
+            <select value={exportPic} onChange={(e) => setExportPic(e.target.value)} className="select-styled flex-1">
               <option value="">Select PIC</option>
               {pics.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
             <button
               onClick={() => handleExport('pic')}
               disabled={!exportPic || !!exporting}
-              className="bg-ontrack hover:bg-cyan-600 text-white px-3 py-2 rounded-md text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 rounded-lg text-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
             >
               {exporting === 'pic' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
             </button>
@@ -224,38 +213,40 @@ export default function ExportPage() {
         </div>
       </div>
 
-      {/* Manual export settings */}
-      <div className="bg-card border border-border rounded-md p-4">
-        <h3 className="text-sm font-semibold text-text-primary mb-3">Custom Export</h3>
-        <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="block text-xs text-text-secondary mb-1">Group</label>
-            <select value={exportGroup} onChange={(e) => setExportGroup(e.target.value)} className={selectClass}>
-              <option value="">All Groups</option>
-              {EQUIPMENT_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
+      {/* Custom export */}
+      <div className="chart-card">
+        <div className="chart-card-header"><h3>Custom Export</h3></div>
+        <div className="p-5">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Group</label>
+              <select value={exportGroup} onChange={(e) => setExportGroup(e.target.value)} className="select-styled">
+                <option value="">All Groups</option>
+                {EQUIPMENT_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">PIC</label>
+              <select value={exportPic} onChange={(e) => setExportPic(e.target.value)} className="select-styled">
+                <option value="">All PICs</option>
+                {pics.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={() => {
+                let filtered = projects;
+                let label = 'All';
+                if (exportGroup) { filtered = filtered.filter((p) => p.group === exportGroup); label = exportGroup; }
+                if (exportPic) { filtered = filtered.filter((p) => p.pic === exportPic); label += `_${exportPic}`; }
+                generateExcel(filtered, label);
+              }}
+              disabled={projectsLoading}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download size={14} />
+              Export Excel
+            </button>
           </div>
-          <div>
-            <label className="block text-xs text-text-secondary mb-1">PIC</label>
-            <select value={exportPic} onChange={(e) => setExportPic(e.target.value)} className={selectClass}>
-              <option value="">All PICs</option>
-              {pics.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-          <button
-            onClick={() => {
-              let filtered = projects;
-              let label = 'All';
-              if (exportGroup) { filtered = filtered.filter((p) => p.group === exportGroup); label = exportGroup; }
-              if (exportPic) { filtered = filtered.filter((p) => p.pic === exportPic); label += `_${exportPic}`; }
-              generateExcel(filtered, label);
-            }}
-            disabled={projectsLoading}
-            className="flex items-center gap-2 bg-eng hover:bg-sky-600 text-white px-4 py-2 rounded-md text-sm transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <Download size={14} />
-            Export Excel
-          </button>
         </div>
       </div>
     </div>

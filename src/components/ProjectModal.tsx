@@ -87,71 +87,77 @@ export default function ProjectModal({ open, project, onSave, onClose }: Project
 
   if (!open) return null;
 
-  const selectClass = "bg-card border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:border-eng transition-colors w-full cursor-pointer";
-  const inputClass = "bg-card border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-eng transition-colors w-full";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 overflow-y-auto py-8" onClick={onClose}>
-      <div className="bg-panel border border-border rounded-lg w-full max-w-[900px] mx-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8" onClick={onClose}>
+      <div
+        className="w-full max-w-[900px] mx-4 relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(6, 10, 19, 0.98) 100%)',
+          border: '1px solid rgba(30, 41, 59, 0.5)',
+          borderRadius: '14px',
+          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.5)',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-text-primary">
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+          <h2 className="text-lg font-bold text-text-primary">
             {project ? 'Edit Project' : 'New Project'}
           </h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary cursor-pointer">
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary cursor-pointer transition-colors p-1 rounded-md hover:bg-white/[0.04]">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
-          {/* Project details - 2 column grid */}
+        <div className="p-5 space-y-5">
+          {/* Project details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-text-secondary mb-1">PIC</label>
-              <input value={pic} onChange={(e) => setPic(e.target.value)} placeholder="Person-In-Charge" className={inputClass} />
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">PIC</label>
+              <input value={pic} onChange={(e) => setPic(e.target.value)} placeholder="Person-In-Charge" className="input-styled w-full" />
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Project Name *</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., CNC Lathe Line 4" className={inputClass} />
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Project Name *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., CNC Lathe Line 4" className="input-styled w-full" />
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Project Code *</label>
-              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., EQ-2024-015" className={`${inputClass} font-mono`} />
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Project Code *</label>
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., EQ-2024-015" className="input-styled w-full font-mono" />
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Equipment Group</label>
-              <select value={group} onChange={(e) => setGroup(e.target.value)} className={selectClass}>
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Equipment Group</label>
+              <select value={group} onChange={(e) => setGroup(e.target.value)} className="select-styled w-full">
                 <option value="">Select group</option>
                 {EQUIPMENT_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Source</label>
-              <select value={source} onChange={(e) => setSource(e.target.value)} className={selectClass}>
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Source</label>
+              <select value={source} onChange={(e) => setSource(e.target.value)} className="select-styled w-full">
                 <option value="">Select source</option>
                 {EQUIPMENT_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Duration (days)</label>
-              <input type="number" value={duration || ''} onChange={(e) => setDuration(Number(e.target.value))} placeholder="0" className={`${inputClass} font-mono`} />
+              <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Duration (days)</label>
+              <input type="number" value={duration || ''} onChange={(e) => setDuration(Number(e.target.value))} placeholder="0" className="input-styled w-full font-mono" />
             </div>
           </div>
 
           {/* Stage schedule */}
           <div>
-            <h3 className="text-sm font-semibold text-text-primary mb-2">Stage Schedule</h3>
-            <div className="overflow-x-auto border border-border rounded-md">
+            <h3 className="text-sm font-semibold text-text-secondary mb-3">Stage Schedule</h3>
+            <div className="data-table overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-elevated">
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider w-8">#</th>
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider">Stage</th>
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider">Plan Start</th>
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider">Plan End</th>
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider">Actual Start</th>
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider">Actual End</th>
-                    <th className="px-2 py-2 text-[10px] text-text-muted uppercase tracking-wider text-center w-8">&#10003;</th>
+                  <tr>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider w-8">#</th>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">Stage</th>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">Plan Start</th>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">Plan End</th>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">Actual Start</th>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">Actual End</th>
+                    <th className="px-3 py-2.5 text-[10px] text-text-muted font-medium uppercase tracking-wider text-center w-8">&#10003;</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,17 +169,17 @@ export default function ProjectModal({ open, project, onSave, onClose }: Project
             </div>
           </div>
 
-          {error && <p className="text-xs text-danger">{error}</p>}
+          {error && <p className="text-xs text-red-400">{error}</p>}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary border border-border rounded-md transition-colors cursor-pointer">
+          <div className="flex justify-end gap-3 pt-1">
+            <button onClick={onClose} className="px-4 py-2.5 text-sm text-text-muted hover:text-text-primary border border-white/[0.08] rounded-lg transition-colors cursor-pointer hover:bg-white/[0.03]">
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="px-4 py-2 text-sm bg-eng hover:bg-sky-600 text-white rounded-md transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              className="px-5 py-2.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 font-medium"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               {project ? 'Update Project' : 'Create Project'}

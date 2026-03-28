@@ -16,23 +16,32 @@ export default function ToastContainer({ toasts, onRemove }: ToastContainerProps
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="toast-enter bg-panel border border-border rounded-md p-3 pr-8 min-w-[280px] relative"
+          className="toast-enter min-w-[300px] relative overflow-hidden"
           style={{
-            borderLeftWidth: '3px',
-            borderLeftColor: toast.type === 'success' ? '#10b981' : '#ef4444',
+            background: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(30, 41, 59, 0.6)',
+            borderRadius: '10px',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
           }}
         >
-          <div className="flex items-center gap-2">
+          <div
+            className="absolute top-0 left-0 w-full h-[2px]"
+            style={{
+              background: `linear-gradient(90deg, ${toast.type === 'success' ? '#10b981' : '#ef4444'}, transparent)`,
+            }}
+          />
+          <div className="flex items-center gap-2.5 p-3 pr-9">
             {toast.type === 'success' ? (
-              <CheckCircle size={16} className="text-success flex-shrink-0" />
+              <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
             ) : (
-              <XCircle size={16} className="text-danger flex-shrink-0" />
+              <XCircle size={16} className="text-red-400 flex-shrink-0" />
             )}
-            <span className="text-sm text-text-primary">{toast.message}</span>
+            <span className="text-[13px] text-text-primary">{toast.message}</span>
           </div>
           <button
             onClick={() => onRemove(toast.id)}
-            className="absolute top-2 right-2 text-text-muted hover:text-text-primary cursor-pointer"
+            className="absolute top-2.5 right-2.5 text-text-muted hover:text-text-primary cursor-pointer transition-colors"
           >
             <X size={14} />
           </button>

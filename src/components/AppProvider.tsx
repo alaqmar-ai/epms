@@ -86,14 +86,11 @@ export default function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{ user, projects, projectsLoading, projectsError, reloadProjects: reload, addToast, toasts }}
     >
-      {/* Toyota red top accent line */}
-      <div className="fixed top-0 left-0 right-0 h-[2px] bg-toyota z-50" />
-
       {showSidebar && (
         <Sidebar user={user} projectCount={projects.length} onLogout={handleLogout} />
       )}
 
-      <main className={showSidebar ? 'md:ml-[220px] pt-[2px]' : 'pt-[2px]'}>
+      <main className={showSidebar ? 'md:ml-[240px]' : ''}>
         {children}
       </main>
 

@@ -26,16 +26,24 @@ export default function Sidebar({ user, projectCount, onLogout }: SidebarProps) 
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const sidebar = (
-    <div className="flex flex-col h-full bg-panel border-r border-border">
+    <div className="flex flex-col h-full bg-panel/80 backdrop-blur-xl border-r border-border/50">
       {/* Brand */}
-      <div className="p-4">
-        <h1 className="text-base font-bold text-text-primary tracking-wide">EPMS</h1>
-        <p className="text-[10px] text-text-muted mt-0.5">Equipment Project Monitoring</p>
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center shadow-lg shadow-red-900/20">
+            <span className="text-white text-[10px] font-bold tracking-wider">EP</span>
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-text-primary tracking-wide">EPMS</h1>
+            <p className="text-[10px] text-text-muted leading-none">Equipment Monitoring</p>
+          </div>
+        </div>
       </div>
-      <div className="h-[2px] bg-toyota mx-4" />
+
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-4" />
 
       {/* Nav */}
-      <nav className="flex-1 py-3 px-2">
+      <nav className="flex-1 py-4 px-3 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -44,16 +52,19 @@ export default function Sidebar({ user, projectCount, onLogout }: SidebarProps) 
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150 mb-0.5 cursor-pointer ${
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 cursor-pointer relative ${
                 active
-                  ? 'bg-card text-eng border-l-[3px] border-eng'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+                  ? 'bg-blue-500/10 text-blue-400'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-white/[0.03]'
               }`}
             >
-              <Icon size={18} />
-              <span className="flex-1">{item.label}</span>
+              {active && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-blue-400" />
+              )}
+              <Icon size={17} strokeWidth={active ? 2 : 1.5} />
+              <span className="flex-1 font-medium">{item.label}</span>
               {item.showCount && projectCount > 0 && (
-                <span className="font-mono text-[10px] bg-elevated px-1.5 py-0.5 rounded text-text-muted">
+                <span className="font-mono text-[10px] bg-white/[0.06] px-1.5 py-0.5 rounded-md text-text-muted">
                   {projectCount}
                 </span>
               )}
@@ -63,21 +74,21 @@ export default function Sidebar({ user, projectCount, onLogout }: SidebarProps) 
       </nav>
 
       {/* User info */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-elevated flex items-center justify-center text-xs font-semibold text-text-primary">
+      <div className="p-4 mx-3 mb-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center text-xs font-semibold text-blue-400 border border-blue-500/10">
             {user.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-text-primary truncate">{user.name}</p>
-            <p className="text-[10px] font-mono text-text-muted uppercase">{user.role}</p>
+            <p className="text-sm font-medium text-text-primary truncate">{user.name}</p>
+            <p className="text-[10px] font-mono text-text-muted">{user.role}</p>
           </div>
         </div>
         <button
           onClick={onLogout}
-          className="flex items-center gap-2 text-xs text-text-muted hover:text-danger transition-colors cursor-pointer w-full"
+          className="flex items-center gap-2 text-xs text-text-muted hover:text-red-400 transition-colors cursor-pointer w-full"
         >
-          <LogOut size={14} />
+          <LogOut size={13} />
           Sign Out
         </button>
       </div>
@@ -89,23 +100,23 @@ export default function Sidebar({ user, projectCount, onLogout }: SidebarProps) 
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="md:hidden fixed top-3 left-3 z-50 bg-panel border border-border rounded-md p-2 cursor-pointer"
+        className="md:hidden fixed top-3 left-3 z-50 bg-panel/90 backdrop-blur-md border border-border/50 rounded-lg p-2 cursor-pointer"
       >
         {mobileOpen ? <X size={20} className="text-text-primary" /> : <Menu size={20} className="text-text-primary" />}
       </button>
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileOpen(false)} />
+        <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Mobile sidebar */}
-      <div className={`md:hidden fixed top-0 left-0 z-40 w-[220px] h-full transform transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`md:hidden fixed top-0 left-0 z-40 w-[240px] h-full transform transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {sidebar}
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden md:block w-[220px] h-screen fixed left-0 top-0">
+      <div className="hidden md:block w-[240px] h-screen fixed left-0 top-0">
         {sidebar}
       </div>
     </>

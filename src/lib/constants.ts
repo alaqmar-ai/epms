@@ -27,7 +27,7 @@ export const EQUIPMENT_SOURCES = [
 
 export const STATUS_COLORS: Record<string, string> = {
   COMPLETED: '#10b981',
-  'IN PROGRESS': '#0ea5e9',
+  'IN PROGRESS': '#3b82f6',
   DELAY: '#ef4444',
   UPCOMING: '#64748b',
   'NOT STARTED': '#475569',

@@ -27,7 +27,6 @@ export default function GanttPage() {
     });
   }, [projects, selectedGroup, selectedPic, searchQuery]);
 
-  // Calculate date range
   const { days } = useMemo(() => {
     let min: Date | null = null;
     let max: Date | null = null;
@@ -48,7 +47,6 @@ export default function GanttPage() {
       max = new Date(today);
       max.setDate(max.getDate() + 30);
     }
-    // Pad a few days
     const s = new Date(min!);
     s.setDate(s.getDate() - 2);
     const e = new Date(max!);
@@ -66,7 +64,6 @@ export default function GanttPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Group days by month
   const months = useMemo(() => {
     const m: { label: string; span: number }[] = [];
     let current = '';
@@ -97,16 +94,16 @@ export default function GanttPage() {
 
   if (projectsLoading) {
     return (
-      <div className="p-4 md:p-6 max-w-content mx-auto">
-        <h1 className="text-xl font-semibold text-text-primary mb-4">Gantt Chart</h1>
+      <div className="p-5 md:p-8 max-w-content mx-auto">
+        <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-6">Gantt Chart</h1>
         <TableSkeleton rows={8} cols={6} />
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-content mx-auto">
-      <h1 className="text-xl font-semibold text-text-primary mb-4">Gantt Chart</h1>
+    <div className="p-5 md:p-8 max-w-content mx-auto">
+      <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-6">Gantt Chart</h1>
 
       <FilterBar
         groups={EQUIPMENT_GROUPS}
@@ -120,50 +117,48 @@ export default function GanttPage() {
       />
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mb-3 text-[10px] text-text-muted">
-        <span className="flex items-center gap-1"><span className="w-4 h-[7px] rounded-sm" style={{ backgroundColor: 'rgba(14,165,233,0.35)' }} /> Plan</span>
-        <span className="flex items-center gap-1"><span className="w-4 h-[7px] rounded-sm" style={{ backgroundColor: 'rgba(16,185,129,0.7)' }} /> Actual</span>
-        <span className="flex items-center gap-1"><span className="w-4 h-[7px] rounded-sm" style={{ backgroundColor: 'rgba(239,68,68,0.7)' }} /> Delay</span>
-        <span className="flex items-center gap-1"><span className="w-4 h-[2px]" style={{ backgroundColor: '#f59e0b' }} /> Today</span>
+      <div className="flex items-center gap-5 mb-4 text-[11px] text-text-muted">
+        <span className="flex items-center gap-1.5"><span className="w-4 h-[6px] rounded-sm" style={{ backgroundColor: 'rgba(59,130,246,0.4)' }} /> Plan</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-[6px] rounded-sm" style={{ backgroundColor: 'rgba(16,185,129,0.7)' }} /> Actual</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-[6px] rounded-sm" style={{ backgroundColor: 'rgba(239,68,68,0.7)' }} /> Delay</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-[2px]" style={{ backgroundColor: '#f59e0b' }} /> Today</span>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-text-muted text-sm">
+        <div className="text-center py-20 text-text-muted text-sm">
           Add projects with dates to see the Gantt chart
         </div>
       ) : days.length > 120 ? (
-        <div className="text-center py-8 text-text-muted text-sm">
+        <div className="text-center py-10 text-text-muted text-sm">
           Date range exceeds 120 days. Please filter to narrow the view.
         </div>
       ) : (
-        <div className="border border-border rounded-md overflow-hidden">
+        <div className="data-table">
           <div className="overflow-x-auto">
             <table className="border-collapse" style={{ minWidth: 280 + days.length * COL_W }}>
-              {/* Month header */}
               <thead>
-                <tr className="bg-elevated">
-                  <th className="sticky left-0 z-10 bg-elevated px-2 py-1 text-[10px] text-text-muted w-[120px] min-w-[120px] border-r border-border" rowSpan={2}>Code</th>
-                  <th className="sticky left-[120px] z-10 bg-elevated px-2 py-1 text-[10px] text-text-muted w-[160px] min-w-[160px] border-r border-border" rowSpan={2}>Stage</th>
+                <tr>
+                  <th className="sticky left-0 z-10 bg-[#0c1220] px-3 py-2 text-[10px] text-text-muted font-medium w-[120px] min-w-[120px] border-r border-white/[0.04]" rowSpan={2}>Code</th>
+                  <th className="sticky left-[120px] z-10 bg-[#0c1220] px-3 py-2 text-[10px] text-text-muted font-medium w-[160px] min-w-[160px] border-r border-white/[0.04]" rowSpan={2}>Stage</th>
                   {months.map((m, i) => (
-                    <th key={i} colSpan={m.span} className="px-1 py-1 text-[9px] text-text-muted text-center border-b border-border font-normal">
+                    <th key={i} colSpan={m.span} className="px-1 py-2 text-[9px] text-text-muted text-center border-b border-white/[0.04] font-normal">
                       {m.label}
                     </th>
                   ))}
                 </tr>
-                {/* Day header */}
-                <tr className="bg-elevated">
+                <tr>
                   {days.map((d, i) => {
                     const isToday = d.toDateString() === today.toDateString();
                     const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                     return (
                       <th
                         key={i}
-                        className="text-center py-1 text-[8px] font-normal border-r border-border/30"
+                        className="text-center py-1.5 text-[8px] font-normal border-r border-white/[0.02]"
                         style={{
                           width: COL_W,
                           minWidth: COL_W,
                           color: isToday ? '#f59e0b' : '#475569',
-                          backgroundColor: isWeekend ? '#0f1729' : undefined,
+                          backgroundColor: isWeekend ? 'rgba(15, 23, 42, 0.6)' : undefined,
                         }}
                       >
                         {d.getDate()}<br />{dayAbbr[d.getDay()]}
@@ -178,11 +173,11 @@ export default function GanttPage() {
                     const stageStatus = getStageStatus(stage);
                     const isDelay = stageStatus === 'DELAY';
                     return (
-                      <tr key={`${project.id}-${si}`} className={`${si === 0 ? 'border-t-2 border-border' : 'border-t border-border/30'}`}>
-                        <td className="sticky left-0 z-10 bg-panel px-2 py-1 font-mono text-[10px] text-eng border-r border-border whitespace-nowrap">
+                      <tr key={`${project.id}-${si}`} className={si === 0 ? 'border-t-2 border-white/[0.06]' : 'border-t border-white/[0.02]'}>
+                        <td className="sticky left-0 z-10 bg-[#060a13] px-3 py-1.5 font-mono text-[10px] text-blue-400 border-r border-white/[0.04] whitespace-nowrap">
                           {si === 0 ? project.code : ''}
                         </td>
-                        <td className="sticky left-[120px] z-10 bg-panel px-2 py-1 text-[10px] text-text-secondary border-r border-border whitespace-nowrap">
+                        <td className="sticky left-[120px] z-10 bg-[#060a13] px-3 py-1.5 text-[10px] text-text-secondary border-r border-white/[0.04] whitespace-nowrap">
                           {stage.stageName}
                         </td>
                         {days.map((d, di) => {
@@ -195,24 +190,24 @@ export default function GanttPage() {
                           return (
                             <td
                               key={di}
-                              className="relative border-r border-border/10"
+                              className="relative border-r border-white/[0.01]"
                               style={{
                                 width: COL_W,
                                 minWidth: COL_W,
                                 height: 24,
-                                backgroundColor: isWeekend ? '#0f1729' : undefined,
+                                backgroundColor: isWeekend ? 'rgba(15, 23, 42, 0.4)' : undefined,
                               }}
                             >
-                              {isToday && <div className="absolute inset-0 border-l-2 border-amber-500/60 z-[1]" />}
+                              {isToday && <div className="absolute inset-0 border-l-2 border-amber-500/50 z-[1]" />}
                               {isPlan && (
                                 <div
-                                  className="absolute left-0 right-0 top-[4px] h-[7px] rounded-sm"
-                                  style={{ backgroundColor: 'rgba(14,165,233,0.35)' }}
+                                  className="absolute left-0 right-0 top-[4px] h-[6px] rounded-sm"
+                                  style={{ backgroundColor: 'rgba(59,130,246,0.35)' }}
                                 />
                               )}
                               {isActual && (
                                 <div
-                                  className="absolute left-0 right-0 bottom-[4px] h-[7px] rounded-sm"
+                                  className="absolute left-0 right-0 bottom-[4px] h-[6px] rounded-sm"
                                   style={{ backgroundColor: isDelay ? 'rgba(239,68,68,0.7)' : 'rgba(16,185,129,0.7)' }}
                                 />
                               )}

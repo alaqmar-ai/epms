@@ -7,11 +7,20 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  const color = STATUS_COLORS[status] || '#475569';
+  const color = STATUS_COLORS[status] || '#64748b';
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wide">
-      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-      <span style={{ color }}>{status}</span>
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md"
+      style={{
+        color,
+        backgroundColor: `${color}12`,
+      }}
+    >
+      <span
+        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+        style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}60` }}
+      />
+      {status}
     </span>
   );
 }

@@ -11,7 +11,7 @@ import { getProjectStatus, getProjectProgress, getStageStatus } from '@/lib/stat
 import { formatFullDate } from '@/lib/utils';
 import { STAGES, STATUS_COLORS } from '@/lib/constants';
 
-const CHART_COLORS = ['#10b981', '#0ea5e9', '#ef4444', '#475569'];
+const CHART_COLORS = ['#10b981', '#3b82f6', '#ef4444', '#64748b'];
 
 export default function DashboardPage() {
   const { projects, projectsLoading } = useApp();
@@ -27,7 +27,6 @@ export default function DashboardPage() {
     return { total, completed, inProgress, delayed, avgProgress };
   }, [projects]);
 
-  // Status distribution for pie chart
   const statusData = useMemo(() => {
     const map: Record<string, number> = { COMPLETED: 0, 'IN PROGRESS': 0, DELAY: 0, 'NOT STARTED': 0 };
     projects.forEach((p) => { map[getProjectStatus(p)]++; });
@@ -36,7 +35,6 @@ export default function DashboardPage() {
       .map(([name, value]) => ({ name, value }));
   }, [projects]);
 
-  // Plan vs Actual bar chart
   const planVsActual = useMemo(() => {
     return projects.slice(0, 15).map((p) => {
       const total = p.stages.length;
@@ -55,17 +53,15 @@ export default function DashboardPage() {
     });
   }, [projects]);
 
-  // Stage completion rate
   const stageCompletion = useMemo(() => {
     if (projects.length === 0) return [];
     return STAGES.map((stageName, i) => {
       const completed = projects.filter((p) => p.stages[i]?.checked).length;
       const pct = Math.round((completed / projects.length) * 100);
-      return { name: stageName.length > 16 ? stageName.substring(0, 14) + '...' : stageName, pct, fill: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444' };
+      return { name: stageName.length > 16 ? stageName.substring(0, 14) + '...' : stageName, pct, fill: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : pct > 0 ? '#3b82f6' : '#1e293b' };
     });
   }, [projects]);
 
-  // Delay hotspots
   const delayHotspots = useMemo(() => {
     return STAGES.map((stageName, i) => {
       const delayed = projects.filter((p) => {
@@ -76,19 +72,26 @@ export default function DashboardPage() {
     });
   }, [projects]);
 
-  const chartTooltipStyle = { backgroundColor: '#1a2234', border: '1px solid #1e293b', borderRadius: '6px', color: '#f1f5f9', fontSize: '12px' };
+  const chartTooltipStyle = {
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    border: '1px solid rgba(30, 41, 59, 0.6)',
+    borderRadius: '8px',
+    color: '#e2e8f0',
+    fontSize: '12px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+  };
 
   return (
-    <div className="p-4 md:p-6 max-w-content mx-auto">
+    <div className="p-5 md:p-8 max-w-content mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
-          <p className="text-xs font-mono text-text-muted mt-0.5">{formatFullDate(new Date())}</p>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight">Dashboard</h1>
+          <p className="text-[13px] text-text-muted mt-1">{formatFullDate(new Date())}</p>
         </div>
         <button
           onClick={() => router.push('/projects?new=1')}
-          className="flex items-center gap-2 bg-toyota hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm transition-colors cursor-pointer"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer shadow-lg shadow-blue-900/20 hover:shadow-blue-900/30"
         >
           <Plus size={16} />
           New Project
@@ -97,86 +100,108 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       {projectsLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
           {Array.from({ length: 5 }).map((_, i) => <StatCardSkeleton key={i} />)}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <StatCard label="Total Projects" value={stats.total} accentColor="#0ea5e9" />
-          <StatCard label="Completed" value={stats.completed} subtitle={`${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% of total`} accentColor="#10b981" />
-          <StatCard label="In Progress" value={stats.inProgress} accentColor="#06b6d4" />
-          <StatCard label="Delayed" value={stats.delayed} accentColor="#ef4444" />
-          <StatCard label="Avg Completion" value={`${stats.avgProgress}%`} accentColor="#f59e0b" />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+          {[
+            { label: 'Total Projects', value: stats.total, color: '#3b82f6' },
+            { label: 'Completed', value: stats.completed, color: '#10b981', subtitle: `${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% of total` },
+            { label: 'In Progress', value: stats.inProgress, color: '#06b6d4' },
+            { label: 'Delayed', value: stats.delayed, color: '#ef4444' },
+            { label: 'Avg Completion', value: `${stats.avgProgress}%`, color: '#f59e0b' },
+          ].map((s, i) => (
+            <div key={i} className={`animate-in animate-in-${i + 1}`}>
+              <StatCard label={s.label} value={s.value} subtitle={s.subtitle} accentColor={s.color} />
+            </div>
+          ))}
         </div>
       )}
 
       {projects.length === 0 && !projectsLoading ? (
-        <div className="text-center py-16 text-text-muted">
+        <div className="text-center py-20 text-text-muted">
           <p className="text-sm">No projects yet. Create your first project to see dashboard analytics.</p>
         </div>
       ) : (
         <>
-          {/* Row 2: Status Distribution + Plan vs Actual */}
+          {/* Row 2: Status + Plan vs Actual */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <div className="bg-card border border-border rounded-md p-4">
-              <h3 className="text-sm font-semibold text-text-primary mb-3">Status Distribution</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={2}>
-                    {statusData.map((entry, i) => (
-                      <Cell key={i} fill={STATUS_COLORS[entry.name] || CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={chartTooltipStyle} />
-                  <Legend formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{value}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3>Status Distribution</h3>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={statusData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} strokeWidth={0}>
+                      {statusData.map((entry, i) => (
+                        <Cell key={i} fill={STATUS_COLORS[entry.name] || CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={chartTooltipStyle} />
+                    <Legend formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{value}</span>} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div className="bg-card border border-border rounded-md p-4">
-              <h3 className="text-sm font-semibold text-text-primary mb-3">Plan vs Actual (%)</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={planVsActual} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
-                  <Tooltip contentStyle={chartTooltipStyle} />
-                  <Legend formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{value}</span>} />
-                  <Bar dataKey="plan" fill="rgba(14,165,233,0.5)" name="Plan" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="actual" fill="rgba(16,185,129,0.7)" name="Actual" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3>Plan vs Actual (%)</h3>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={planVsActual} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.4)" />
+                    <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
+                    <Tooltip contentStyle={chartTooltipStyle} />
+                    <Legend formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{value}</span>} />
+                    <Bar dataKey="plan" fill="rgba(59,130,246,0.4)" name="Plan" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="actual" fill="rgba(16,185,129,0.6)" name="Actual" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
           {/* Row 3: Stage Completion + Delay Hotspots */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-card border border-border rounded-md p-4">
-              <h3 className="text-sm font-semibold text-text-primary mb-3">Stage Completion Rate</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={stageCompletion} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} domain={[0, 100]} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} width={110} />
-                  <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value}%`, 'Completion']} />
-                  <Bar dataKey="pct" radius={[0, 2, 2, 0]}>
-                    {stageCompletion.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3>Stage Completion Rate</h3>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={stageCompletion} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" horizontal={false} />
+                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} domain={[0, 100]} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} width={110} />
+                    <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value}%`, 'Completion']} />
+                    <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
+                      {stageCompletion.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div className="bg-card border border-border rounded-md p-4">
-              <h3 className="text-sm font-semibold text-text-primary mb-3">Delay Hotspots</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={delayHotspots} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} width={110} />
-                  <Tooltip contentStyle={chartTooltipStyle} />
-                  <Bar dataKey="count" fill="#ef4444" name="Delayed" radius={[0, 2, 2, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3>Delay Hotspots</h3>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={delayHotspots} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" horizontal={false} />
+                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} width={110} />
+                    <Tooltip contentStyle={chartTooltipStyle} />
+                    <Bar dataKey="count" fill="#ef4444" name="Delayed" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </>

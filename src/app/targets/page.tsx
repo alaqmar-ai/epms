@@ -81,7 +81,6 @@ export default function TargetsPage() {
       });
     });
 
-    // Sort: overdue first, then due-soon, then active
     const order = { overdue: 0, 'due-soon': 1, active: 2 };
     return items.sort((a, b) => order[a.priority] - order[b.priority]);
   }, [projects]);
@@ -96,25 +95,25 @@ export default function TargetsPage() {
     switch (priority) {
       case 'overdue': return '#ef4444';
       case 'due-soon': return '#f59e0b';
-      default: return '#0ea5e9';
+      default: return '#3b82f6';
     }
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-content mx-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-text-primary">Daily Targets</h1>
-        <p className="text-xs font-mono text-text-muted mt-0.5">{formatFullDate(new Date())}</p>
+    <div className="p-5 md:p-8 max-w-content mx-auto">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-text-primary tracking-tight">Daily Targets</h1>
+        <p className="text-[13px] text-text-muted mt-1">{formatFullDate(new Date())}</p>
       </div>
 
       {/* KPI Cards */}
       {projectsLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
           {Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          <StatCard label="Active Today" value={stats.active} accentColor="#0ea5e9" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+          <StatCard label="Active Today" value={stats.active} accentColor="#3b82f6" />
           <StatCard label="Due Within 3 Days" value={stats.dueSoon} accentColor="#f59e0b" />
           <StatCard label="Overdue" value={stats.overdue} accentColor="#ef4444" />
         </div>
@@ -122,7 +121,7 @@ export default function TargetsPage() {
 
       {/* Target Cards */}
       {targets.length === 0 && !projectsLoading ? (
-        <div className="text-center py-16 text-text-muted text-sm">
+        <div className="text-center py-20 text-text-muted text-sm">
           No active targets today — all on track
         </div>
       ) : (
@@ -130,19 +129,24 @@ export default function TargetsPage() {
           {targets.map((t, i) => (
             <div
               key={i}
-              className="bg-card border border-border rounded-md p-3 transition-colors hover:bg-elevated"
-              style={{ borderLeftWidth: '3px', borderLeftColor: borderColor(t.priority) }}
+              className="card p-4 relative overflow-hidden animate-in"
+              style={{ animationDelay: `${i * 30}ms` }}
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
+              {/* Top accent */}
+              <div
+                className="absolute top-0 left-0 w-full h-[2px]"
+                style={{ background: `linear-gradient(90deg, ${borderColor(t.priority)}, transparent)` }}
+              />
+              <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-primary truncate">{t.projectName}</p>
-                  <p className="font-mono text-[10px] text-text-muted">{t.projectCode}</p>
+                  <p className="font-mono text-[11px] text-text-muted mt-0.5">{t.projectCode}</p>
                 </div>
                 <span
-                  className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
+                  className="text-[10px] font-mono font-medium px-2 py-1 rounded-md flex-shrink-0"
                   style={{
                     color: borderColor(t.priority),
-                    backgroundColor: `${borderColor(t.priority)}15`,
+                    backgroundColor: `${borderColor(t.priority)}12`,
                   }}
                 >
                   {t.daysLabel}
@@ -150,16 +154,18 @@ export default function TargetsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-text-secondary">
+                  <p className="text-[13px] text-text-secondary">
                     Stage {t.stageIndex + 1}: {t.stageName}
                   </p>
-                  <p className="font-mono text-[10px] text-text-muted mt-0.5">
+                  <p className="font-mono text-[11px] text-text-muted mt-1">
                     {formatDate(t.planStart)} → {formatDate(t.planFinish)}
                   </p>
                 </div>
                 <StatusBadge status={t.status} />
               </div>
-              <p className="text-[10px] text-text-muted mt-2">PIC: {t.pic}</p>
+              <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                <p className="text-[11px] text-text-muted">PIC: <span className="text-text-secondary">{t.pic}</span></p>
+              </div>
             </div>
           ))}
         </div>
