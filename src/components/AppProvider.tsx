@@ -55,20 +55,20 @@ export default function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [searchParams, user, login, router]);
 
-  // Auth redirect
+  // Auto-login (login page temporarily removed)
   useEffect(() => {
     if (authLoading) return;
-    if (!user && pathname !== '/') {
-      router.replace('/');
+    if (!user) {
+      login({ name: 'Admin', role: 'Admin' });
     }
-    if (user && pathname === '/') {
+    if (pathname === '/') {
       router.replace('/dashboard');
     }
-  }, [user, authLoading, pathname, router]);
+  }, [user, authLoading, pathname, router, login]);
 
   const handleLogout = () => {
-    logout();
-    router.replace('/');
+    // Login temporarily removed — just reload to re-auto-login
+    router.replace('/dashboard');
   };
 
   if (authLoading) {

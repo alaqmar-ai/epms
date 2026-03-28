@@ -37,3 +37,5 @@ next-env.d.ts
 
 # clasp
 apps-script/.clasp.json
+
+.vercel

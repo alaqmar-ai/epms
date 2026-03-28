@@ -1,18 +1,14 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import LoginForm from '@/components/LoginForm';
-import { useAuth } from '@/hooks/useAuth';
-import { User } from '@/lib/types';
 
-export default function LoginPage() {
+export default function HomePage() {
   const router = useRouter();
-  const { login } = useAuth();
 
-  const handleLogin = (user: User) => {
-    login(user);
+  useEffect(() => {
     router.replace('/dashboard');
-  };
+  }, [router]);
 
-  return <LoginForm onLogin={handleLogin} />;
+  return null;
 }
