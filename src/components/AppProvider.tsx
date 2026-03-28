@@ -33,7 +33,7 @@ export default function AppProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading, login, logout } = useAuth();
+  const { user, loading: authLoading, login } = useAuth();
   const { projects, loading: projectsLoading, error: projectsError, reload } = useProjects();
   const { toasts, addToast, removeToast } = useToast();
 
