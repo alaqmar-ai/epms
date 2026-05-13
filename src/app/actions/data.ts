@@ -41,6 +41,44 @@ export async function listUsersAction(): Promise<User[]> {
   return rows.map(mapUser);
 }
 
+export async function createUserAction(input: {
+  username: string;
+  name: string;
+  role: 'ADMIN' | 'STAFF';
+  email?: string;
+}): Promise<User> {
+  const sql = requireSql();
+  const rows = (await sql`
+    insert into users (username, name, role, email)
+    values (${input.username}, ${input.name}, ${input.role}, ${input.email ?? null})
+    returning *
+  `) as Record<string, unknown>[];
+  return mapUser(rows[0]);
+}
+
+export async function updateUserAction(
+  id: string,
+  patch: Partial<{ username: string; name: string; role: 'ADMIN' | 'STAFF'; email: string | null }>
+): Promise<User> {
+  const sql = requireSql();
+  const rows = (await sql`
+    update users set
+      username = coalesce(${patch.username ?? null}, username),
+      name     = coalesce(${patch.name ?? null}, name),
+      role     = coalesce(${patch.role ?? null}, role),
+      email    = coalesce(${patch.email ?? null}, email)
+    where id = ${id}
+    returning *
+  `) as Record<string, unknown>[];
+  if (!rows[0]) throw new Error('User not found');
+  return mapUser(rows[0]);
+}
+
+export async function deleteUserAction(id: string): Promise<void> {
+  const sql = requireSql();
+  await sql`delete from users where id = ${id}`;
+}
+
 // ─── Major projects ───────────────────────────────────────────────────────
 
 export async function listMajorProjectsAction(): Promise<MajorProject[]> {

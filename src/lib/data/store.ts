@@ -90,6 +90,54 @@ export async function listUsers(): Promise<User[]> {
   return users;
 }
 
+export async function createUser(input: {
+  username: string;
+  name: string;
+  role: 'ADMIN' | 'STAFF';
+  email?: string;
+}): Promise<User> {
+  if (useNeon) {
+    const u = await srv.createUserAction(input);
+    await srv.logActivityAction({ userId: actorId(), action: 'create_user', refType: 'user', refId: u.id, after: u });
+    return u;
+  }
+  const users = load<User[]>(KEY.users, SEED_USERS);
+  const u: User = { id: rid('u'), ...input };
+  users.push(u);
+  save(KEY.users, users);
+  return u;
+}
+
+export async function updateUser(
+  id: string,
+  patch: Partial<Pick<User, 'username' | 'name' | 'role' | 'email'>>
+): Promise<User> {
+  if (useNeon) {
+    const u = await srv.updateUserAction(id, {
+      ...patch,
+      email: patch.email === undefined ? undefined : (patch.email ?? null),
+    });
+    await srv.logActivityAction({ userId: actorId(), action: 'update_user', refType: 'user', refId: id, after: u });
+    return u;
+  }
+  const users = load<User[]>(KEY.users, SEED_USERS);
+  const i = users.findIndex((u) => u.id === id);
+  if (i < 0) throw new Error('User not found');
+  users[i] = { ...users[i], ...patch };
+  save(KEY.users, users);
+  return users[i];
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  if (useNeon) {
+    await srv.deleteUserAction(id);
+    await srv.logActivityAction({ userId: actorId(), action: 'delete_user', refType: 'user', refId: id });
+    return;
+  }
+  const users = load<User[]>(KEY.users, SEED_USERS);
+  save(KEY.users, users.filter((u) => u.id !== id));
+}
+
 // ─── Major projects ────────────────────────────────────────────────────────
 
 export async function listMajorProjects(): Promise<MajorProject[]> {
