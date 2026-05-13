@@ -33,11 +33,6 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     }
   };
 
-  const fillDemo = (u: string) => {
-    setUsername(u);
-    setPassword(u);
-  };
-
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] bg-[#F5F7FA]">
       {/* ── Brand panel (desktop) ─────────────────────────────────────────── */}
@@ -135,30 +130,6 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               </button>
             </form>
 
-            <div className="mt-7 pt-5 border-t border-border">
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-text-muted mb-2.5">Demo accounts</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => fillDemo('admin')}
-                  className="text-left rounded-xl border border-border bg-white px-3 py-2.5 hover:border-primary/40 hover:bg-primary-light/40 transition-colors"
-                >
-                  <p className="text-[11px] uppercase tracking-wider text-primary font-semibold">Admin</p>
-                  <p className="text-xs font-mono text-text-primary mt-0.5">admin / admin</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo('staff')}
-                  className="text-left rounded-xl border border-border bg-white px-3 py-2.5 hover:border-primary/40 hover:bg-primary-light/40 transition-colors"
-                >
-                  <p className="text-[11px] uppercase tracking-wider text-text-secondary font-semibold">Staff</p>
-                  <p className="text-xs font-mono text-text-primary mt-0.5">staff / staff</p>
-                </button>
-              </div>
-              <p className="text-[10.5px] text-text-muted mt-3">
-                Click a card to autofill, then press Sign in.
-              </p>
-            </div>
           </div>
         </div>
 

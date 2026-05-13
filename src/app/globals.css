@@ -179,23 +179,27 @@ input[type="date"] {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
-/* Input */
-.input-styled {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 13.5px;
-  color: #0F172A;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  width: 100%;
-}
-.input-styled::placeholder {
-  color: #94A3B8;
-}
-.input-styled:focus {
-  border-color: #2563EB;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+/* Input — declared inside @layer components so Tailwind padding utilities
+   can override the default 12px horizontal padding. */
+@layer components {
+  .input-styled {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding-block: 9px;
+    padding-inline: 12px;
+    font-size: 13.5px;
+    color: #0F172A;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+  }
+  .input-styled::placeholder {
+    color: #94A3B8;
+  }
+  .input-styled:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  }
 }
 
 /* Button primary */
