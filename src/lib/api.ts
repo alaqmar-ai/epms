@@ -1,19 +1,24 @@
-import { Project, Stage } from './types';
+import { Project, Stage, User } from './types';
 import { CONFIG, STAGES } from './constants';
 
 const API_URL = CONFIG.API_URL;
 const isOffline = !API_URL || API_URL === 'YOUR_APPS_SCRIPT_URL_HERE';
 
-// ── Offline demo data (localStorage-backed) ──
+// ── Offline demo users (username / password) ──
 
-const DEMO_USERS = [
-  { name: 'Ahmad', role: 'PIC' },
-  { name: 'Faiz', role: 'PIC' },
-  { name: 'Hidayat', role: 'Lead' },
-  { name: 'Admin', role: 'Admin' },
+interface DemoUser extends User {
+  password: string;
+}
+
+const DEMO_USERS: DemoUser[] = [
+  { id: 'u_admin', username: 'admin', password: 'admin', name: 'Administrator', role: 'ADMIN', email: 'admin@epms.local' },
+  { id: 'u_staff', username: 'staff', password: 'staff', name: 'Staff User', role: 'STAFF', email: 'staff@epms.local' },
+  { id: 'u_ahmad', username: 'ahmad', password: 'ahmad', name: 'Ahmad', role: 'STAFF' },
+  { id: 'u_faiz',  username: 'faiz',  password: 'faiz',  name: 'Faiz',  role: 'STAFF' },
+  { id: 'u_hidayat', username: 'hidayat', password: 'hidayat', name: 'Hidayat', role: 'STAFF' },
 ];
 
-const STORAGE_KEY = 'epms_projects';
+const STORAGE_KEY = 'epms_projects_v2'; // bumped after stage/group/source overhaul
 
 function loadLocalProjects(): Project[] {
   if (typeof window === 'undefined') return [];
@@ -34,12 +39,12 @@ function saveLocalProjects(projects: Project[]) {
 function generateDemoProjects(): Project[] {
   const today = new Date();
   const projects: Project[] = [
-    makeDemoProject('EQ-2025-001', 'CNC Lathe Line 4', 'Ahmad', 'Machining', 'Import - Japan', 77, -50),
-    makeDemoProject('EQ-2025-002', 'Robotic Welding Cell B', 'Faiz', 'Welding', 'Import - Germany', 66, -40),
-    makeDemoProject('EQ-2025-003', 'Conveyor System Assy 2', 'Ahmad', 'Assembly', 'Local', 55, -30),
-    makeDemoProject('EQ-2025-004', 'Hydraulic Press 500T', 'Hidayat', 'Press', 'Import - China', 77, -55),
-    makeDemoProject('EQ-2025-005', 'Paint Booth Upgrade', 'Faiz', 'Paint', 'Local', 44, -20),
-    makeDemoProject('EQ-2026-006', 'AGV Material Handler', 'Ahmad', 'Logistics', 'Import - Japan', 55, -5),
+    makeDemoProject('EQ-2025-001', 'Chassis Line 4 Retool',    'Ahmad',   'Chassis',    'Overseas', 77, -50),
+    makeDemoProject('EQ-2025-002', 'Trim Robotic Cell B',       'Faiz',    'Trim',       'TMA',      66, -40),
+    makeDemoProject('EQ-2025-003', 'Final Inspection Conveyor', 'Ahmad',   'Final',      'Local',    55, -30),
+    makeDemoProject('EQ-2025-004', 'Inspection Press 500T',     'Hidayat', 'Inspection', 'Overseas', 77, -55),
+    makeDemoProject('EQ-2025-005', 'General Utility Upgrade',   'Faiz',    'General',    'Local',    44, -20),
+    makeDemoProject('EQ-2026-006', 'Pilot AGV Handler',         'Ahmad',   'Pilot',      'Overseas', 55, -5),
   ];
   return projects;
 
@@ -47,11 +52,12 @@ function generateDemoProjects(): Project[] {
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() + dayOffset);
     const id = 'prj_' + Date.now() + Math.random().toString(36).substring(2, 6);
+    const span = Math.max(1, Math.round(duration / STAGES.length));
     const stages: Stage[] = STAGES.map((stageName, i) => {
       const stageStart = new Date(startDate);
-      stageStart.setDate(stageStart.getDate() + i * Math.round(duration / 11));
+      stageStart.setDate(stageStart.getDate() + i * span);
       const stageEnd = new Date(stageStart);
-      stageEnd.setDate(stageEnd.getDate() + Math.round(duration / 11) - 1);
+      stageEnd.setDate(stageEnd.getDate() + span - 1);
       const isPast = stageEnd < today;
       const isActive = stageStart <= today && stageEnd >= today;
       const actualStart = isPast || isActive ? fmt(new Date(stageStart.getTime() + (Math.random() * 3 - 1) * 86400000)) : '';
@@ -76,16 +82,41 @@ function generateDemoProjects(): Project[] {
 
 // ── API functions (online or offline) ──
 
-export async function loginUser(name: string, password: string): Promise<{ name: string; role: string }> {
+export async function loginUser(username: string, password: string): Promise<User> {
   if (isOffline) {
-    const user = DEMO_USERS.find((u) => u.name.toLowerCase() === name.toLowerCase() && name === password);
-    if (!user) throw new Error('Invalid credentials');
+    const found = DEMO_USERS.find(
+      (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+    );
+    if (!found) throw new Error('Invalid credentials');
+    const user: User = {
+      id: found.id,
+      username: found.username,
+      name: found.name,
+      role: found.role,
+      email: found.email,
+    };
     return user;
   }
-  const res = await fetch(`${API_URL}?action=login&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`);
+  const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Invalid credentials');
-  return data.user;
+  return data.user as User;
+}
+
+export async function listUsers(): Promise<User[]> {
+  if (isOffline) {
+    return DEMO_USERS.map((u) => ({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      role: u.role,
+      email: u.email,
+    }));
+  }
+  const res = await fetch(`${API_URL}?action=listUsers`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data.users as User[];
 }
 
 export async function fetchAllProjects(): Promise<Project[]> {
@@ -106,7 +137,7 @@ export async function createProject(project: Omit<Project, 'id' | 'createdAt' | 
       id: 'prj_' + Date.now(),
       createdAt: now,
       updatedAt: now,
-      stages: project.stages.length === 11
+      stages: project.stages.length === STAGES.length
         ? project.stages
         : STAGES.map((name, i) => ({
             stageIndex: i,

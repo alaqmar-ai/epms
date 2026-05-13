@@ -2,13 +2,16 @@
 
 import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { User, Project } from '@/lib/types';
+import type { User, Project } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useToast, ToastMessage } from '@/hooks/useToast';
 import { validateToken } from '@/lib/api';
 import { CONFIG } from '@/lib/constants';
+import { maybeSeed } from '@/lib/data/seed';
+import LoginForm from './LoginForm';
 import Sidebar from './Sidebar';
+import TopBar from './TopBar';
 import ToastContainer from './Toast';
 
 interface AppContextValue {
@@ -19,6 +22,7 @@ interface AppContextValue {
   reloadProjects: () => Promise<void>;
   addToast: (type: 'success' | 'error', message: string) => void;
   toasts: ToastMessage[];
+  logout: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -29,71 +33,108 @@ export function useApp() {
   return ctx;
 }
 
+const PUBLIC_PATHS = ['/login'];
+
 export default function AppProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading, login } = useAuth();
+  const { user, loading: authLoading, login, logout } = useAuth();
   const { projects, loading: projectsLoading, error: projectsError, reload } = useProjects();
   const { toasts, addToast, removeToast } = useToast();
 
-  // Token-based auth
+  // Seed demo data on first load
+  useEffect(() => {
+    maybeSeed();
+  }, []);
+
+  // Optional token-based bypass (e.g. shared dashboard preview link)
   useEffect(() => {
     const token = searchParams.get('token');
     if (token && !user) {
       if (token === CONFIG.TEAM_TOKEN) {
-        login({ name: 'Guest', role: 'Viewer' });
+        login({ id: 'u_guest', username: 'guest', name: 'Guest', role: 'STAFF' });
         router.replace('/dashboard');
       } else {
-        validateToken(token).then((valid) => {
-          if (valid) {
-            login({ name: 'Guest', role: 'Viewer' });
-            router.replace('/dashboard');
-          }
-        }).catch(() => {});
+        validateToken(token)
+          .then((valid) => {
+            if (valid) {
+              login({ id: 'u_guest', username: 'guest', name: 'Guest', role: 'STAFF' });
+              router.replace('/dashboard');
+            }
+          })
+          .catch(() => {});
       }
     }
   }, [searchParams, user, login, router]);
 
-  // Auto-login (login page temporarily removed)
+  // Route guard
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
-      login({ name: 'Admin', role: 'Admin' });
+    const isPublic = PUBLIC_PATHS.includes(pathname) || pathname === '/';
+    if (!user && !isPublic) {
+      router.replace('/');
     }
-    if (pathname === '/') {
+    if (user && pathname === '/') {
       router.replace('/dashboard');
     }
-  }, [user, authLoading, pathname, router, login]);
+  }, [user, authLoading, pathname, router]);
+
+  const handleLogin = (u: User) => {
+    login(u);
+    router.replace('/dashboard');
+  };
 
   const handleLogout = () => {
-    // Login temporarily removed — just reload to re-auto-login
-    router.replace('/dashboard');
+    logout();
+    router.replace('/');
   };
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="skeleton w-8 h-8 rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA]">
+        <div className="skeleton w-10 h-10 rounded-full" />
       </div>
     );
   }
 
-  const isLoginPage = pathname === '/';
-  const showSidebar = user && !isLoginPage;
+  // Unauthenticated → login page
+  if (!user) {
+    return (
+      <AppContext.Provider
+        value={{
+          user: null,
+          projects,
+          projectsLoading,
+          projectsError,
+          reloadProjects: reload,
+          addToast,
+          toasts,
+          logout: handleLogout,
+        }}
+      >
+        <LoginForm onLogin={handleLogin} />
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </AppContext.Provider>
+    );
+  }
 
   return (
     <AppContext.Provider
-      value={{ user, projects, projectsLoading, projectsError, reloadProjects: reload, addToast, toasts }}
+      value={{
+        user,
+        projects,
+        projectsLoading,
+        projectsError,
+        reloadProjects: reload,
+        addToast,
+        toasts,
+        logout: handleLogout,
+      }}
     >
-      {showSidebar && (
-        <Sidebar user={user} projectCount={projects.length} onLogout={handleLogout} />
-      )}
-
-      <main className={showSidebar ? 'md:ml-[240px]' : ''}>
-        {children}
-      </main>
-
+      <Sidebar user={user} projectCount={projects.length} onLogout={handleLogout} />
+      <TopBar />
+      <main className="md:ml-[260px] min-h-screen">{children}</main>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </AppContext.Provider>
   );

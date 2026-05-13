@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/lib/types';
 
-const STORAGE_KEY = 'pm_user';
+const STORAGE_KEY = 'epms_user_v2';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);

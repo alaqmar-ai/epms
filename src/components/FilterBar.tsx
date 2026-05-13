@@ -3,9 +3,9 @@
 import { Search } from 'lucide-react';
 
 interface FilterBarProps {
-  groups: string[];
-  pics: string[];
-  statuses?: string[];
+  groups: readonly string[];
+  pics: readonly string[];
+  statuses?: readonly string[];
   selectedGroup: string;
   selectedPic: string;
   selectedStatus?: string;

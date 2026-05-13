@@ -1,211 +1,306 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { CheckCircle2, Calendar, Users, Percent, ArrowRight } from 'lucide-react';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 import { useApp } from '@/components/AppProvider';
-import StatCard from '@/components/StatCard';
-import { StatCardSkeleton } from '@/components/LoadingSpinner';
-import { getProjectStatus, getProjectProgress, getStageStatus } from '@/lib/status';
-import { formatFullDate } from '@/lib/utils';
-import { STAGES, STATUS_COLORS } from '@/lib/constants';
+import PageHeader from '@/components/ui/PageHeader';
+import StatusPill from '@/components/ui/StatusPill';
+import {
+  listMajorProjects,
+  listSubProjects,
+  listStages,
+  listAttendance,
+  listUsers,
+} from '@/lib/data/store';
+import { todayIso } from '@/lib/status';
+import type { MajorProject, SubProject, StageSchedule, User, AttendanceRecord } from '@/lib/types';
 
-const CHART_COLORS = ['#10b981', '#3b82f6', '#ef4444', '#64748b'];
+const PIE_COLORS = ['#2563EB', '#10B981', '#EF4444', '#F59E0B', '#94A3B8', '#6B7280'];
 
 export default function DashboardPage() {
-  const { projects, projectsLoading } = useApp();
-  const router = useRouter();
+  const { user } = useApp();
+  const [majors, setMajors] = useState<MajorProject[]>([]);
+  const [subs, setSubs] = useState<SubProject[]>([]);
+  const [stages, setStages] = useState<StageSchedule[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = useMemo(() => {
-    const total = projects.length;
-    const statuses = projects.map(getProjectStatus);
-    const completed = statuses.filter((s) => s === 'COMPLETED').length;
-    const inProgress = statuses.filter((s) => s === 'IN PROGRESS').length;
-    const delayed = statuses.filter((s) => s === 'DELAY').length;
-    const avgProgress = total > 0 ? Math.round(projects.reduce((acc, p) => acc + getProjectProgress(p), 0) / total) : 0;
-    return { total, completed, inProgress, delayed, avgProgress };
-  }, [projects]);
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [mp, sp, us] = await Promise.all([listMajorProjects(), listSubProjects(), listUsers()]);
+      setMajors(mp);
+      setSubs(sp);
+      setUsers(us);
+      const all: StageSchedule[] = [];
+      for (const s of sp) all.push(...(await listStages(s.id)));
+      setStages(all);
+      const today = new Date();
+      setAttendance(
+        await listAttendance({ year: today.getFullYear(), monthIndex: today.getMonth() })
+      );
+      setLoading(false);
+    })();
+  }, []);
 
-  const statusData = useMemo(() => {
-    const map: Record<string, number> = { COMPLETED: 0, 'IN PROGRESS': 0, DELAY: 0, 'NOT STARTED': 0 };
-    projects.forEach((p) => { map[getProjectStatus(p)]++; });
-    return Object.entries(map)
-      .filter(([, v]) => v > 0)
-      .map(([name, value]) => ({ name, value }));
-  }, [projects]);
+  const today = todayIso();
 
-  const planVsActual = useMemo(() => {
-    return projects.slice(0, 15).map((p) => {
-      const total = p.stages.length;
-      const planDone = p.stages.filter((s) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const pf = s.planFinish ? new Date(s.planFinish) : null;
-        return pf && pf <= today;
-      }).length;
-      const actualDone = p.stages.filter((s) => s.checked).length;
-      return {
-        name: p.code || p.name.substring(0, 12),
-        plan: total > 0 ? Math.round((planDone / total) * 100) : 0,
-        actual: total > 0 ? Math.round((actualDone / total) * 100) : 0,
-      };
+  const kpi = useMemo(() => {
+    const activeProjects = subs.filter((s) => s.status === 'In Progress' || s.status === 'Pending').length;
+    const delayedProjects = subs.filter((s) => s.status === 'Delayed').length;
+    const completedProjects = subs.filter((s) => s.status === 'Completed').length;
+
+    const dueToday = stages.filter((st) => st.planEnd === today).length;
+
+    const todayAtt = attendance.filter((a) => a.date === today);
+    const presentStatuses = ['Present', 'Half-day (AM)', 'Half-day (PM)', 'Training', 'Business Trip', 'Holiday Job', 'Weekend Job'];
+    const present = todayAtt.filter((a) => presentStatuses.includes(a.status)).length;
+
+    const totalUsers = users.length || 1;
+    const attendancePct = Math.round((present / totalUsers) * 100);
+
+    const overall = subs.length > 0 ? Math.round(subs.reduce((acc, s) => acc + s.progress, 0) / subs.length) : 0;
+
+    return {
+      activeProjects,
+      delayedProjects,
+      completedProjects,
+      dueToday,
+      present,
+      attendancePct,
+      overall,
+    };
+  }, [subs, stages, attendance, users, today]);
+
+  const statusPie = useMemo(() => {
+    const buckets: Record<string, number> = {};
+    subs.forEach((s) => (buckets[s.status] = (buckets[s.status] ?? 0) + 1));
+    return Object.entries(buckets).map(([name, value]) => ({ name, value }));
+  }, [subs]);
+
+  const groupBars = useMemo(() => {
+    const byGroup: Record<string, { name: string; count: number; progress: number }> = {};
+    subs.forEach((s) => {
+      const b = (byGroup[s.equipmentGroup] = byGroup[s.equipmentGroup] ?? {
+        name: s.equipmentGroup,
+        count: 0,
+        progress: 0,
+      });
+      b.count++;
+      b.progress += s.progress;
     });
-  }, [projects]);
-
-  const stageCompletion = useMemo(() => {
-    if (projects.length === 0) return [];
-    return STAGES.map((stageName, i) => {
-      const completed = projects.filter((p) => p.stages[i]?.checked).length;
-      const pct = Math.round((completed / projects.length) * 100);
-      return { name: stageName.length > 16 ? stageName.substring(0, 14) + '...' : stageName, pct, fill: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : pct > 0 ? '#3b82f6' : '#1e293b' };
-    });
-  }, [projects]);
-
-  const delayHotspots = useMemo(() => {
-    return STAGES.map((stageName, i) => {
-      const delayed = projects.filter((p) => {
-        const stage = p.stages[i];
-        return stage && getStageStatus(stage) === 'DELAY';
-      }).length;
-      return { name: stageName.length > 16 ? stageName.substring(0, 14) + '...' : stageName, count: delayed };
-    });
-  }, [projects]);
-
-  const chartTooltipStyle = {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    border: '1px solid rgba(30, 41, 59, 0.6)',
-    borderRadius: '8px',
-    color: '#e2e8f0',
-    fontSize: '12px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-  };
+    return Object.values(byGroup).map((b) => ({ ...b, progress: Math.round(b.progress / b.count) }));
+  }, [subs]);
 
   return (
-    <div className="p-5 md:p-8 max-w-content mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary tracking-tight">Dashboard</h1>
-          <p className="text-[13px] text-text-muted mt-1">{formatFullDate(new Date())}</p>
-        </div>
-        <button
-          onClick={() => router.push('/projects?new=1')}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer shadow-lg shadow-blue-900/20 hover:shadow-blue-900/30"
-        >
-          <Plus size={16} />
-          New Project
-        </button>
-      </div>
+    <div className="p-6 md:p-10 max-w-content mx-auto">
+      <PageHeader title={`Welcome, ${user?.name?.split(' ')[0] ?? 'User'}`} subtitle={new Date().toDateString()} />
 
-      {/* KPI Cards */}
-      {projectsLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-          {Array.from({ length: 5 }).map((_, i) => <StatCardSkeleton key={i} />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-          {[
-            { label: 'Total Projects', value: stats.total, color: '#3b82f6' },
-            { label: 'Completed', value: stats.completed, color: '#10b981', subtitle: `${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% of total` },
-            { label: 'In Progress', value: stats.inProgress, color: '#06b6d4' },
-            { label: 'Delayed', value: stats.delayed, color: '#ef4444' },
-            { label: 'Avg Completion', value: `${stats.avgProgress}%`, color: '#f59e0b' },
-          ].map((s, i) => (
-            <div key={i} className={`animate-in animate-in-${i + 1}`}>
-              <StatCard label={s.label} value={s.value} subtitle={s.subtitle} accentColor={s.color} />
-            </div>
+      {loading ? (
+        <div className="grid gap-3 mb-6 md:grid-cols-3">
+          <div className="skeleton h-40 md:row-span-2" />
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="skeleton h-20" />
           ))}
         </div>
-      )}
-
-      {projects.length === 0 && !projectsLoading ? (
-        <div className="text-center py-20 text-text-muted">
-          <p className="text-sm">No projects yet. Create your first project to see dashboard analytics.</p>
-        </div>
       ) : (
-        <>
-          {/* Row 2: Status + Plan vs Actual */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <div className="chart-card">
-              <div className="chart-card-header">
-                <h3>Status Distribution</h3>
+        <div className="grid gap-3 mb-6 md:grid-cols-3">
+          {/* Hero tile — Overall completion */}
+          <div className="md:row-span-2 bg-gradient-to-br from-primary to-blue-700 text-white rounded-2xl p-6 shadow-card relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-[0.08]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
+              }}
+            />
+            <div className="relative z-10 flex flex-col h-full">
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-white/70">Overall Completion</p>
+              <div className="mt-3 flex items-baseline gap-2">
+                <p className="text-6xl font-bold font-mono tracking-tight">{kpi.overall}</p>
+                <span className="text-3xl font-semibold text-white/80">%</span>
               </div>
-              <div className="p-4">
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={statusData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} strokeWidth={0}>
-                      {statusData.map((entry, i) => (
-                        <Cell key={i} fill={STATUS_COLORS[entry.name] || CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={chartTooltipStyle} />
-                    <Legend formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{value}</span>} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <p className="text-sm text-white/80 mt-1">across {subs.length} sub-projects</p>
+
+              <div className="mt-5 w-full h-2 rounded-full bg-white/20 overflow-hidden">
+                <div className="h-full bg-white" style={{ width: `${Math.min(100, kpi.overall)}%` }} />
               </div>
-            </div>
-            <div className="chart-card">
-              <div className="chart-card-header">
-                <h3>Plan vs Actual (%)</h3>
-              </div>
-              <div className="p-4">
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={planVsActual} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.4)" />
-                    <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <Tooltip contentStyle={chartTooltipStyle} />
-                    <Legend formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{value}</span>} />
-                    <Bar dataKey="plan" fill="rgba(59,130,246,0.4)" name="Plan" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="actual" fill="rgba(16,185,129,0.6)" name="Actual" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+
+              <div className="mt-auto pt-6 grid grid-cols-2 gap-3 text-white/90">
+                <MiniStat label="Active" value={kpi.activeProjects} />
+                <MiniStat label="Delayed" value={kpi.delayedProjects} accent />
               </div>
             </div>
           </div>
 
-          {/* Row 3: Stage Completion + Delay Hotspots */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="chart-card">
-              <div className="chart-card-header">
-                <h3>Stage Completion Rate</h3>
-              </div>
-              <div className="p-4">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={stageCompletion} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} domain={[0, 100]} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} width={110} />
-                    <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value}%`, 'Completion']} />
-                    <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
-                      {stageCompletion.map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="chart-card">
-              <div className="chart-card-header">
-                <h3>Delay Hotspots</h3>
-              </div>
-              <div className="p-4">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={delayHotspots} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} width={110} />
-                    <Tooltip contentStyle={chartTooltipStyle} />
-                    <Bar dataKey="count" fill="#ef4444" name="Delayed" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </>
+          <Kpi label="Completed" value={kpi.completedProjects} icon={<CheckCircle2 size={18} />} tone="green" />
+          <Kpi label="Due Today" value={kpi.dueToday} icon={<Calendar size={18} />} tone="amber" />
+          <Kpi label="Staff Present" value={`${kpi.present}/${users.length}`} icon={<Users size={18} />} tone="blue" />
+          <Kpi label="Attendance" value={`${kpi.attendancePct}%`} icon={<Percent size={18} />} tone="green" />
+        </div>
       )}
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        <ChartCard title="Status distribution" className="lg:col-span-1">
+          {statusPie.length === 0 ? (
+            <Empty />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={statusPie} dataKey="value" outerRadius={80} innerRadius={45} paddingAngle={2}>
+                  {statusPie.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="By equipment group" className="lg:col-span-2">
+          {groupBars.length === 0 ? (
+            <Empty />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={groupBars}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="name" stroke="#64748B" fontSize={11} />
+                <YAxis stroke="#64748B" fontSize={11} />
+                <Tooltip />
+                <Bar dataKey="progress" name="Avg progress %" fill="#2563EB" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" name="# projects" fill="#10B981" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+      </div>
+
+      {/* Recent major projects */}
+      <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">Recent major projects</h3>
+          <Link href="/projects" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+            View all <ArrowRight size={12} />
+          </Link>
+        </div>
+        {majors.length === 0 ? (
+          <p className="p-10 text-sm text-text-muted text-center">No projects yet.</p>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-elevated">
+              <tr>
+                <th className="px-5 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Project</th>
+                <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Status</th>
+                <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Progress</th>
+                <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {majors.slice(0, 5).map((m) => (
+                <tr key={m.id} className="border-t border-border">
+                  <td className="px-5 py-3">
+                    <Link href={`/sub-projects?major=${m.id}`} className="font-medium text-text-primary hover:text-primary">
+                      {m.projectName}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-3">
+                    <StatusPill status={m.status} />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1.5 rounded-full bg-elevated overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${Math.min(100, m.overallProgress)}%` }} />
+                      </div>
+                      <span className="text-xs font-mono text-text-secondary">{Math.round(m.overallProgress)}%</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-text-muted font-mono">{new Date(m.createdAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
+}
+
+function MiniStat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div className={`rounded-xl px-3 py-2.5 ${accent ? 'bg-white/15' : 'bg-white/10'} border border-white/10`}>
+      <p className="text-[10px] uppercase tracking-wider text-white/70 font-semibold">{label}</p>
+      <p className="text-xl font-bold font-mono mt-0.5">{value}</p>
+    </div>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  tone: 'blue' | 'red' | 'green' | 'amber' | 'slate';
+}) {
+  const map = {
+    blue: 'bg-primary-light text-primary',
+    red: 'bg-red-50 text-danger',
+    green: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
+    slate: 'bg-slate-50 text-slate-600',
+  };
+  return (
+    <div className="bg-white border border-border rounded-2xl shadow-card p-4 flex items-center gap-4">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${map[tone]}`}>{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wider font-semibold text-text-muted">{label}</p>
+        <p className="text-xl font-bold text-text-primary font-mono mt-0.5 truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChartCard({
+  title,
+  children,
+  className,
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`bg-white border border-border rounded-2xl shadow-card ${className ?? ''}`}>
+      <div className="px-5 py-4 border-b border-border">
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+function Empty() {
+  return <p className="text-xs text-text-muted text-center py-12">No data yet</p>;
 }

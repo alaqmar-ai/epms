@@ -135,7 +135,7 @@ export default function ProjectModal({ open, project, onSave, onClose }: Project
               <label className="block text-[11px] text-text-muted font-medium uppercase tracking-wider mb-1.5">Source</label>
               <select value={source} onChange={(e) => setSource(e.target.value)} className="select-styled w-full">
                 <option value="">Select source</option>
-                {EQUIPMENT_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {EQUIPMENT_SOURCES.map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>

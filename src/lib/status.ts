@@ -1,4 +1,71 @@
 import { Stage, Project, StageStatus, ProjectStatus } from './types';
+import type { Status } from './constants';
+
+// ─── New status helpers (Phase 3+) ─────────────────────────────────────────
+
+export function statusBg(status: Status | string): string {
+  const map: Record<string, string> = {
+    Pending: 'bg-slate-50 text-slate-700 border border-slate-200',
+    'In Progress': 'bg-blue-50 text-blue-700 border border-blue-100',
+    Completed: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+    Cancelled: 'bg-zinc-100 text-zinc-600 border border-zinc-200 line-through',
+    'Not Completed': 'bg-amber-50 text-amber-700 border border-amber-100',
+    Delayed: 'bg-red-50 text-red-700 border border-red-100',
+  };
+  return map[status] ?? 'bg-slate-50 text-slate-700 border border-slate-200';
+}
+
+export type Traffic = 'green' | 'yellow' | 'red';
+
+export function trafficFor(progress: number, dueInDays: number): Traffic {
+  if (dueInDays < 0 && progress < 100) return 'red';
+  if (dueInDays <= 3 && progress < 80) return 'yellow';
+  return 'green';
+}
+
+export function progressOfSubProject(stages: { status: Status; progress?: number }[]): number {
+  if (!stages.length) return 0;
+  const total = stages.reduce((acc, s) => {
+    if (s.status === 'Completed') return acc + 100;
+    if (s.status === 'Cancelled') return acc + 0;
+    return acc + (s.progress ?? 0);
+  }, 0);
+  return Math.round(total / stages.length);
+}
+
+export function progressOfMajor(subs: { progress: number; status: Status }[]): number {
+  if (!subs.length) return 0;
+  const active = subs.filter((s) => s.status !== 'Cancelled');
+  if (!active.length) return 0;
+  return Math.round(active.reduce((a, s) => a + s.progress, 0) / active.length);
+}
+
+export function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function daysUntil(targetIso?: string): number {
+  if (!targetIso) return Infinity;
+  const today = new Date(todayIso());
+  const target = new Date(targetIso);
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function deriveStageStatus(stage: {
+  status: Status;
+  planEnd?: string;
+  actualEnd?: string;
+}): Status {
+  if (stage.status === 'Completed' || stage.status === 'Cancelled') return stage.status;
+  if (stage.planEnd && !stage.actualEnd) {
+    const due = daysUntil(stage.planEnd);
+    if (due < 0) return 'Delayed';
+  }
+  return stage.status;
+}
+
+// ─── Legacy helpers (kept for old /projects, /gantt, /export pages until rewritten) ──
 
 export function getStageStatus(stage: Stage): StageStatus {
   if (stage.checked) return 'COMPLETED';

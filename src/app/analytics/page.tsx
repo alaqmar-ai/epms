@@ -1,220 +1,229 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from 'recharts';
-import { useApp } from '@/components/AppProvider';
-import StatCard from '@/components/StatCard';
-import { StatCardSkeleton } from '@/components/LoadingSpinner';
-import { getProjectStatus, getProjectProgress, getStageStatus } from '@/lib/status';
-import { STAGES, STATUS_COLORS } from '@/lib/constants';
+import PageHeader from '@/components/ui/PageHeader';
+import {
+  listMajorProjects,
+  listSubProjects,
+  listStages,
+  listAttendance,
+  listUsers,
+} from '@/lib/data/store';
+import type { SubProject, StageSchedule, User, AttendanceRecord } from '@/lib/types';
+import { deriveStageStatus } from '@/lib/status';
 
-const GROUP_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#64748b'];
-const chartTooltipStyle = {
-  backgroundColor: 'rgba(15, 23, 42, 0.95)',
-  border: '1px solid rgba(30, 41, 59, 0.6)',
-  borderRadius: '8px',
-  color: '#e2e8f0',
-  fontSize: '12px',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-};
+const PALETTE = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#64748B'];
 
 export default function AnalyticsPage() {
-  const { projects, projectsLoading } = useApp();
+  const [subs, setSubs] = useState<SubProject[]>([]);
+  const [stages, setStages] = useState<StageSchedule[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = useMemo(() => {
-    const totalStages = projects.length * 11;
-    const completedStages = projects.reduce((acc, p) => acc + p.stages.filter((s) => s.checked).length, 0);
-    const avgProgress = projects.length > 0 ? Math.round(projects.reduce((acc, p) => acc + getProjectProgress(p), 0) / projects.length) : 0;
-    const delayedStages = projects.reduce((acc, p) => acc + p.stages.filter((s) => getStageStatus(s) === 'DELAY').length, 0);
-    return { total: projects.length, totalStages, completedStages, avgProgress, delayedStages };
-  }, [projects]);
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [sp, us] = await Promise.all([listSubProjects(), listUsers()]);
+      await listMajorProjects();
+      setSubs(sp);
+      setUsers(us);
+      const all: StageSchedule[] = [];
+      for (const s of sp) all.push(...(await listStages(s.id)));
+      setStages(all);
+      const today = new Date();
+      setAttendance(await listAttendance({ year: today.getFullYear(), monthIndex: today.getMonth() }));
+      setLoading(false);
+    })();
+  }, []);
 
-  const radarData = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return STAGES.map((name, i) => {
-      const planDone = projects.filter((p) => {
-        const s = p.stages[i];
-        if (!s || !s.planFinish) return false;
-        const pf = new Date(s.planFinish);
-        pf.setHours(0, 0, 0, 0);
-        return pf <= today;
-      }).length;
-      const actualDone = projects.filter((p) => p.stages[i]?.checked).length;
-      return { stage: name.length > 12 ? name.substring(0, 10) + '..' : name, plan: planDone, actual: actualDone };
+  const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+
+  const byPic = useMemo(() => {
+    const map: Record<string, { name: string; assigned: number; completed: number; delayed: number; avgProgress: number; _sum: number }> = {};
+    subs.forEach((s) => {
+      const u = userById.get(s.picId);
+      const k = u?.name ?? '—';
+      const bucket = (map[k] = map[k] ?? { name: k, assigned: 0, completed: 0, delayed: 0, avgProgress: 0, _sum: 0 });
+      bucket.assigned++;
+      if (s.status === 'Completed') bucket.completed++;
+      if (s.status === 'Delayed') bucket.delayed++;
+      bucket._sum += s.progress;
     });
-  }, [projects]);
+    return Object.values(map).map((b) => ({
+      name: b.name,
+      assigned: b.assigned,
+      completed: b.completed,
+      delayed: b.delayed,
+      avgProgress: Math.round(b._sum / b.assigned),
+    }));
+  }, [subs, userById]);
 
-  const progressData = useMemo(() => {
-    return [...projects]
-      .map((p) => ({
-        name: p.code || p.name.substring(0, 15),
-        progress: getProjectProgress(p),
-        fill: STATUS_COLORS[getProjectStatus(p)] || '#64748b',
-      }))
-      .sort((a, b) => b.progress - a.progress);
-  }, [projects]);
+  const byGroup = useMemo(() => bucketBy(subs, (s) => s.equipmentGroup), [subs]);
+  const bySource = useMemo(() => bucketBy(subs, (s) => s.source), [subs]);
+  const byCategory = useMemo(() => bucketBy(subs, (s) => s.category), [subs]);
 
-  const groupData = useMemo(() => {
+  const delayCounts = useMemo(() => {
+    let onTrack = 0;
+    let delayed = 0;
+    stages.forEach((st) => {
+      const d = deriveStageStatus({ status: st.status, planEnd: st.planEnd, actualEnd: st.actualEnd });
+      if (d === 'Delayed') delayed++;
+      else onTrack++;
+    });
+    return [
+      { name: 'On Track', value: onTrack },
+      { name: 'Delayed', value: delayed },
+    ];
+  }, [stages]);
+
+  const attendanceCounts = useMemo(() => {
     const map: Record<string, number> = {};
-    projects.forEach((p) => { map[p.group] = (map[p.group] || 0) + 1; });
+    attendance.forEach((a) => (map[a.status] = (map[a.status] ?? 0) + 1));
     return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [projects]);
-
-  const picData = useMemo(() => {
-    const map: Record<string, number> = {};
-    projects.forEach((p) => { map[p.pic] = (map[p.pic] || 0) + 1; });
-    return Object.entries(map).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-  }, [projects]);
-
-  const trendData = useMemo(() => {
-    const months: { label: string; count: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      const year = d.getFullYear();
-      const month = d.getMonth();
-      let count = 0;
-      projects.forEach((p) => {
-        p.stages.forEach((s) => {
-          if (s.actualFinish) {
-            const af = new Date(s.actualFinish);
-            if (af.getFullYear() === year && af.getMonth() === month) count++;
-          }
-        });
-      });
-      months.push({ label, count });
-    }
-    return months;
-  }, [projects]);
-
-  if (projectsLoading) {
-    return (
-      <div className="p-5 md:p-8 max-w-content mx-auto">
-        <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-8">Analytics & Performance</h1>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
-        </div>
-      </div>
-    );
-  }
-
-  if (projects.length === 0) {
-    return (
-      <div className="p-5 md:p-8 max-w-content mx-auto">
-        <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-8">Analytics & Performance</h1>
-        <div className="text-center py-20 text-text-muted text-sm">Add projects to see analytics</div>
-      </div>
-    );
-  }
+  }, [attendance]);
 
   return (
-    <div className="p-5 md:p-8 max-w-content mx-auto">
-      <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-8">Analytics & Performance</h1>
+    <div className="p-6 md:p-10 max-w-content mx-auto">
+      <PageHeader title="Analytics" subtitle="Breakdowns across projects, PICs, attendance and delays" />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        <StatCard label="Total Projects" value={stats.total} accentColor="#3b82f6" />
-        <StatCard label="Stages Completed" value={`${stats.completedStages} / ${stats.totalStages}`} accentColor="#10b981" />
-        <StatCard label="Average Progress" value={`${stats.avgProgress}%`} accentColor="#f59e0b" />
-        <StatCard label="Delayed Stages" value={stats.delayedStages} accentColor="#ef4444" />
-      </div>
-
-      {/* Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="chart-card">
-          <div className="chart-card-header"><h3>Plan vs Actual by Stage</h3></div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={280}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="rgba(30, 41, 59, 0.5)" />
-                <PolarAngleAxis dataKey="stage" tick={{ fill: '#64748b', fontSize: 9 }} />
-                <PolarRadiusAxis tick={{ fill: '#475569', fontSize: 9 }} />
-                <Radar name="Plan" dataKey="plan" stroke="#3b82f6" fill="rgba(59,130,246,0.15)" strokeWidth={1.5} />
-                <Radar name="Actual" dataKey="actual" stroke="#10b981" fill="rgba(16,185,129,0.15)" strokeWidth={1.5} />
-                <Tooltip contentStyle={chartTooltipStyle} />
-                <Legend formatter={(v) => <span style={{ color: '#94a3b8', fontSize: '11px' }}>{v}</span>} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="skeleton h-72" />
+          ))}
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Card title="Sub projects by PIC">
+            {byPic.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={byPic}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="name" stroke="#64748B" fontSize={11} />
+                  <YAxis stroke="#64748B" fontSize={11} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="assigned" name="Assigned" fill="#2563EB" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="delayed" name="Delayed" fill="#EF4444" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
 
-        <div className="chart-card">
-          <div className="chart-card-header"><h3>Project Progress Overview</h3></div>
-          <div className="p-4">
+          <Card title="By equipment group">
+            {byGroup.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={byGroup}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="name" stroke="#64748B" fontSize={11} />
+                  <YAxis stroke="#64748B" fontSize={11} />
+                  <Tooltip />
+                  <Bar dataKey="count" name="Count" fill="#2563EB" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="avg" name="Avg progress %" fill="#10B981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          <Card title="By source">
+            {bySource.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={bySource} dataKey="count" nameKey="name" outerRadius={100} innerRadius={50}>
+                    {bySource.map((_, i) => (
+                      <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          <Card title="By category">
+            {byCategory.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={byCategory} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis type="number" stroke="#64748B" fontSize={11} />
+                  <YAxis type="category" dataKey="name" stroke="#64748B" fontSize={11} width={120} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#8B5CF6" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          <Card title="Delay analytics (stages)">
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={progressData} layout="vertical" margin={{ left: 5, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" horizontal={false} />
-                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} domain={[0, 100]} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 9 }} width={90} />
-                <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [`${v}%`, 'Progress']} />
-                <Bar dataKey="progress" radius={[0, 4, 4, 0]}>
-                  {progressData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="chart-card">
-          <div className="chart-card-header"><h3>Equipment Group Distribution</h3></div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie data={groupData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value" paddingAngle={3} strokeWidth={0} label={({ name, value }) => `${name} (${value})`}>
-                  {groupData.map((_, i) => <Cell key={i} fill={GROUP_COLORS[i % GROUP_COLORS.length]} />)}
+                <Pie data={delayCounts} dataKey="value" outerRadius={100} innerRadius={50} label>
+                  <Cell fill="#10B981" />
+                  <Cell fill="#EF4444" />
                 </Pie>
-                <Tooltip contentStyle={chartTooltipStyle} />
+                <Tooltip />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
-          </div>
-        </div>
+          </Card>
 
-        <div className="chart-card">
-          <div className="chart-card-header"><h3>PIC Workload</h3></div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={picData} margin={{ left: 5, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" />
-                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
-                <Tooltip contentStyle={chartTooltipStyle} />
-                <Bar dataKey="count" fill="#3b82f6" name="Projects" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <Card title="Attendance (current month)">
+            {attendanceCounts.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={attendanceCounts} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis type="number" stroke="#64748B" fontSize={11} />
+                  <YAxis type="category" dataKey="name" stroke="#64748B" fontSize={11} width={140} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#06B6D4" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
         </div>
-      </div>
-
-      {/* Row 3 */}
-      <div className="chart-card">
-        <div className="chart-card-header"><h3>Monthly Completion Trend</h3></div>
-        <div className="p-4">
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={trendData} margin={{ left: -10, right: 10 }}>
-              <defs>
-                <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(30, 41, 59, 0.3)" />
-              <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
-              <Tooltip contentStyle={chartTooltipStyle} />
-              <Area type="monotone" dataKey="count" stroke="#10b981" fill="url(#trendGrad)" name="Stages Completed" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      )}
     </div>
   );
+}
+
+function bucketBy(subs: SubProject[], key: (s: SubProject) => string) {
+  const map: Record<string, { name: string; count: number; _sum: number }> = {};
+  subs.forEach((s) => {
+    const k = key(s);
+    const b = (map[k] = map[k] ?? { name: k, count: 0, _sum: 0 });
+    b.count++;
+    b._sum += s.progress;
+  });
+  return Object.values(map).map((b) => ({ name: b.name, count: b.count, avg: Math.round(b._sum / b.count) }));
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white border border-border rounded-2xl shadow-card">
+      <div className="px-5 py-4 border-b border-border">
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+function EmptyChart() {
+  return <p className="text-xs text-text-muted text-center py-20">No data yet</p>;
 }

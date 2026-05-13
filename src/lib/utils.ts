@@ -25,8 +25,19 @@ export function daysFromToday(dateStr: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function cn(...classes: (string | boolean | undefined | null)[]): string {
-  return classes.filter(Boolean).join(' ');
+import clsx, { type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
+}
+
+export function planDuration(start?: string, end?: string): number {
+  if (!start || !end) return 0;
+  const s = new Date(start);
+  const e = new Date(end);
+  const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff + 1; // inclusive
 }
 
 export function toDateInputValue(dateStr: string): string {

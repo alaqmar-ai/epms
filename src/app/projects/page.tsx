@@ -1,203 +1,205 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Plus, Pencil, Trash2, FolderOpen } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Plus, Pencil, Trash2, FolderOpen, Search } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
-import FilterBar from '@/components/FilterBar';
-import StatusBadge from '@/components/StatusBadge';
-import ProgressBar from '@/components/ProgressBar';
-import ProjectModal from '@/components/ProjectModal';
+import { useMajorProjects } from '@/hooks/useMajorProjects';
+import { useUsers } from '@/hooks/useUsers';
+import PageHeader from '@/components/ui/PageHeader';
+import StatusPill from '@/components/ui/StatusPill';
+import MajorProjectModal from '@/components/MajorProjectModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { TableSkeleton } from '@/components/LoadingSpinner';
-import { getProjectStatus, getProjectProgress, getCurrentStage } from '@/lib/status';
-import { createProject, updateProject, deleteProject } from '@/lib/api';
-import { EQUIPMENT_GROUPS } from '@/lib/constants';
-import { Project } from '@/lib/types';
+import { deleteMajorProject } from '@/lib/data/store';
+import { canDeleteProjects, isAdmin } from '@/lib/types';
+import type { MajorProject } from '@/lib/types';
 
-export default function ProjectsPage() {
-  const { projects, projectsLoading, reloadProjects, addToast } = useApp();
-  const searchParams = useSearchParams();
+export default function MajorProjectsPage() {
+  const { user, addToast } = useApp();
+  const { data: majors, loading, reload } = useMajorProjects();
+  const { data: users } = useUsers();
 
-  const [selectedGroup, setSelectedGroup] = useState('');
-  const [selectedPic, setSelectedPic] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editProject, setEditProject] = useState<Project | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [editing, setEditing] = useState<MajorProject | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MajorProject | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    if (searchParams.get('new') === '1') {
-      setEditProject(null);
-      setModalOpen(true);
-    }
-  }, [searchParams]);
-
-  const pics = useMemo(() => Array.from(new Set(projects.map((p) => p.pic).filter(Boolean))), [projects]);
+  const ownerName = useMemo(() => {
+    const map = new Map(users.map((u) => [u.id, u.name]));
+    return (id?: string) => (id ? map.get(id) ?? '—' : '—');
+  }, [users]);
 
   const filtered = useMemo(() => {
-    return projects.filter((p) => {
-      if (selectedGroup && p.group !== selectedGroup) return false;
-      if (selectedPic && p.pic !== selectedPic) return false;
-      if (selectedStatus) {
-        const status = getProjectStatus(p);
-        if (status !== selectedStatus) return false;
-      }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!p.name.toLowerCase().includes(q) && !p.code.toLowerCase().includes(q) && !p.pic.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-  }, [projects, selectedGroup, selectedPic, selectedStatus, searchQuery]);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSave = async (data: any) => {
-    if (data.id) {
-      await updateProject({ ...data, createdAt: '', updatedAt: '' } as Project);
-      addToast('success', 'Project updated successfully');
-    } else {
-      await createProject(data);
-      addToast('success', 'Project created successfully');
-    }
-    await reloadProjects();
-  };
+    const q = search.trim().toLowerCase();
+    if (!q) return majors;
+    return majors.filter(
+      (m) =>
+        m.projectName.toLowerCase().includes(q) ||
+        (m.description ?? '').toLowerCase().includes(q) ||
+        ownerName(m.ownerId).toLowerCase().includes(q)
+    );
+  }, [majors, search, ownerName]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await deleteProject(deleteTarget.id);
-      addToast('success', `Deleted "${deleteTarget.name}"`);
-      await reloadProjects();
-    } catch {
-      addToast('error', 'Failed to delete project');
+      await deleteMajorProject(deleteTarget.id);
+      addToast('success', 'Major project deleted');
+      setDeleteTarget(null);
+      await reload();
+    } catch (e) {
+      addToast('error', (e as Error).message);
     } finally {
       setDeleting(false);
-      setDeleteTarget(null);
     }
   };
 
   return (
-    <div className="p-5 md:p-8 max-w-content mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text-primary tracking-tight">Projects</h1>
-        <button
-          onClick={() => { setEditProject(null); setModalOpen(true); }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer shadow-lg shadow-blue-900/20"
-        >
-          <Plus size={16} />
-          New Project
-        </button>
-      </div>
-
-      {/* Filters */}
-      <FilterBar
-        groups={EQUIPMENT_GROUPS}
-        pics={pics}
-        statuses={['COMPLETED', 'IN PROGRESS', 'DELAY', 'NOT STARTED']}
-        selectedGroup={selectedGroup}
-        selectedPic={selectedPic}
-        selectedStatus={selectedStatus}
-        searchQuery={searchQuery}
-        onGroupChange={setSelectedGroup}
-        onPicChange={setSelectedPic}
-        onStatusChange={setSelectedStatus}
-        onSearchChange={setSearchQuery}
+    <div className="p-6 md:p-10 max-w-content mx-auto">
+      <PageHeader
+        title="Major Projects"
+        subtitle="Parent-level projects. Progress rolls up from sub-projects."
+        action={
+          isAdmin(user) && (
+            <button
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              <Plus size={16} />
+              New Major Project
+            </button>
+          )
+        }
       />
 
-      {/* Table */}
-      {projectsLoading ? (
-        <TableSkeleton rows={5} cols={9} />
+      <div className="relative mb-5 max-w-md">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+        <input
+          className="input-styled pl-9"
+          placeholder="Search name, owner, description…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {loading ? (
+        <div className="grid gap-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="skeleton h-20" />
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20">
-          <FolderOpen size={40} className="mx-auto text-text-muted/50 mb-3" />
-          <p className="text-sm text-text-muted">
-            {projects.length === 0 ? 'No projects yet' : 'No projects match your filters'}
+        <div className="bg-white border border-border rounded-2xl p-10 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-elevated text-text-muted mb-3">
+            <FolderOpen size={22} />
+          </div>
+          <p className="text-sm text-text-primary font-medium">No major projects yet</p>
+          <p className="text-xs text-text-muted mt-1">
+            {isAdmin(user) ? 'Click "New Major Project" to create one.' : 'Awaiting administrator setup.'}
           </p>
-          {projects.length === 0 && (
-            <button
-              onClick={() => { setEditProject(null); setModalOpen(true); }}
-              className="mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
-            >
-              Create your first project
-            </button>
-          )}
         </div>
       ) : (
-        <div className="data-table overflow-x-auto">
-          <table className="w-full text-left min-w-[900px]">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[120px]">Code</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider">Project Name</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[90px]">PIC</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[100px]">Group</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[110px]">Source</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[140px]">Stage</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[120px]">Status</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[130px]">Progress</th>
-                <th className="px-4 py-3 text-[11px] text-text-muted font-medium uppercase tracking-wider w-[80px] text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => {
-                const status = getProjectStatus(p);
-                const progress = getProjectProgress(p);
-                const stage = getCurrentStage(p);
-                return (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3 font-mono text-xs text-blue-400">{p.code}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-text-primary">{p.name}</td>
-                    <td className="px-4 py-3 text-[13px] text-text-secondary">{p.pic}</td>
-                    <td className="px-4 py-3 text-[13px] text-text-secondary">{p.group}</td>
-                    <td className="px-4 py-3 text-[13px] text-text-secondary">{p.source}</td>
-                    <td className="px-4 py-3 text-[13px] text-text-muted">{stage}</td>
-                    <td className="px-4 py-3"><StatusBadge status={status} /></td>
-                    <td className="px-4 py-3"><ProgressBar value={progress} /></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-0.5">
+        <div className="grid gap-3">
+          {filtered.map((m) => (
+            <div
+              key={m.id}
+              className="bg-white border border-border rounded-2xl shadow-card hover:shadow-card-hover transition-all p-5"
+            >
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Link
+                      href={`/sub-projects?major=${m.id}`}
+                      className="text-base font-semibold text-text-primary hover:text-primary truncate"
+                    >
+                      {m.projectName}
+                    </Link>
+                    <StatusPill status={m.status} />
+                  </div>
+                  <p className="text-xs text-text-muted line-clamp-2 max-w-2xl">
+                    {m.description ?? 'No description'}
+                  </p>
+                  <div className="flex items-center gap-4 mt-3 text-xs text-text-secondary">
+                    <span>
+                      <span className="text-text-muted">Owner:</span> {ownerName(m.ownerId)}
+                    </span>
+                    <span>
+                      <span className="text-text-muted">Created:</span>{' '}
+                      {new Date(m.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">
+                      Progress
+                    </p>
+                    <p className="text-lg font-bold text-text-primary font-mono">
+                      {Math.round(m.overallProgress)}%
+                    </p>
+                  </div>
+                  {isAdmin(user) && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditing(m);
+                          setModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary-light transition-colors"
+                        aria-label="Edit"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      {canDeleteProjects(user) && (
                         <button
-                          onClick={() => { setEditProject(p); setModalOpen(true); }}
-                          className="p-2 text-text-muted hover:text-blue-400 transition-colors cursor-pointer rounded-md hover:bg-white/[0.04]"
-                          title="Edit"
+                          onClick={() => setDeleteTarget(m)}
+                          className="p-2 rounded-lg text-text-muted hover:text-danger hover:bg-red-50 transition-colors"
+                          aria-label="Delete"
                         >
-                          <Pencil size={14} />
+                          <Trash2 size={15} />
                         </button>
-                        <button
-                          onClick={() => setDeleteTarget(p)}
-                          className="p-2 text-text-muted hover:text-red-400 transition-colors cursor-pointer rounded-md hover:bg-white/[0.04]"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 h-2 rounded-full bg-elevated overflow-hidden">
+                <div
+                  className="h-full bg-primary progress-fill"
+                  style={{ width: `${Math.min(100, m.overallProgress)}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Modals */}
-      <ProjectModal
+      <MajorProjectModal
         open={modalOpen}
-        project={editProject}
-        onSave={handleSave}
-        onClose={() => { setModalOpen(false); setEditProject(null); }}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => {
+          reload();
+          addToast('success', editing ? 'Project updated' : 'Project created');
+        }}
+        existing={editing}
       />
+
       <ConfirmDialog
         open={!!deleteTarget}
-        title={`Delete ${deleteTarget?.name || ''}?`}
-        message="This will permanently remove the project and all its stage data."
+        title="Delete major project?"
+        message={`"${deleteTarget?.projectName}" and all its sub-projects and stages will be permanently removed.`}
+        confirmLabel="Delete"
+        danger
         loading={deleting}
-        onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
       />
     </div>
   );
