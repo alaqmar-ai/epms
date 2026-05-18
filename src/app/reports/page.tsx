@@ -14,6 +14,8 @@ import {
   listUsers,
 } from '@/lib/data/store';
 import type { MajorProject, SubProject, StageSchedule, User, AttendanceRecord, ActivityLog } from '@/lib/types';
+import { isAdmin } from '@/lib/types';
+import { formatDate, formatDateTime } from '@/lib/utils';
 
 type ReportId =
   | 'projects_status'
@@ -32,6 +34,7 @@ interface ReportSpec {
 
 export default function ReportsPage() {
   const { user } = useApp();
+  const admin = isAdmin(user);
   const [busy, setBusy] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [majors, setMajors] = useState<MajorProject[]>([]);
@@ -46,27 +49,31 @@ export default function ReportsPage() {
         listUsers(),
         listMajorProjects(),
         listSubProjects(),
-        listActivity(500),
+        admin ? listActivity(500) : Promise.resolve([] as ActivityLog[]),
       ]);
       setUsers(us);
       setMajors(mp);
-      setSubs(sp);
+      const scopedSubs = admin ? sp : sp.filter((s) => s.picId === user?.id);
+      setSubs(scopedSubs);
       setActivity(ac);
       const all: StageSchedule[] = [];
-      for (const s of sp) all.push(...(await listStages(s.id)));
+      for (const s of scopedSubs) all.push(...(await listStages(s.id)));
       setStages(all);
-      setAttendance(await listAttendance());
+      const att = await listAttendance();
+      setAttendance(admin ? att : att.filter((a) => a.userId === user?.id));
     })();
-  }, []);
+  }, [admin, user?.id]);
 
   const userName = (id?: string) => users.find((u) => u.id === id)?.name ?? '—';
   const majorName = (id: string) => majors.find((m) => m.id === id)?.projectName ?? '—';
 
-  const reports: ReportSpec[] = [
+  const allReports: ReportSpec[] = [
     {
       id: 'projects_status',
-      title: 'Project Status Report',
-      description: 'All sub-projects with status, progress, and dates.',
+      title: admin ? 'Project Status Report' : 'My Project Status Report',
+      description: admin
+        ? 'All sub-projects with status, progress, and dates.'
+        : 'Your assigned sub-projects with status, progress, and dates.',
       build: async () => ({
         headers: ['Major', 'Sub Project', 'Group', 'Source', 'Category', 'PIC', 'Plan Start', 'Plan End', 'Progress %', 'Status'],
         rows: subs.map((s) => [
@@ -76,8 +83,8 @@ export default function ReportsPage() {
           s.source,
           s.category,
           userName(s.picId),
-          s.plannedStart ?? '',
-          s.plannedEnd ?? '',
+          s.plannedStart ? formatDate(s.plannedStart) : '',
+          s.plannedEnd ? formatDate(s.plannedEnd) : '',
           Math.round(s.progress),
           s.status,
         ]),
@@ -86,7 +93,9 @@ export default function ReportsPage() {
     {
       id: 'delay_analysis',
       title: 'Delay Analysis',
-      description: 'Stages flagged as delayed across all projects.',
+      description: admin
+        ? 'Stages flagged as delayed across all projects.'
+        : 'Your stages flagged as delayed.',
       build: async () => {
         const today = new Date().toISOString().slice(0, 10);
         const delayed = stages.filter((st) => st.planEnd && today > st.planEnd && st.status !== 'Completed' && st.status !== 'Cancelled');
@@ -95,18 +104,18 @@ export default function ReportsPage() {
           rows: delayed.map((st) => {
             const sub = subs.find((s) => s.id === st.subProjectId);
             const late = st.planEnd ? Math.floor((Date.parse(today) - Date.parse(st.planEnd)) / 86400000) : 0;
-            return [sub?.projectName ?? '—', `${st.stageIndex + 1}. ${st.stageName}`, st.planEnd ?? '', late, st.status, st.remarks ?? ''];
+            return [sub?.projectName ?? '—', `${st.stageIndex + 1}. ${st.stageName}`, st.planEnd ? formatDate(st.planEnd) : '', late, st.status, st.remarks ?? ''];
           }),
         };
       },
     },
     {
       id: 'attendance',
-      title: 'Attendance Report',
-      description: 'All attendance records.',
+      title: admin ? 'Attendance Report' : 'My Attendance Report',
+      description: admin ? 'All attendance records.' : 'Your own attendance records.',
       build: async () => ({
         headers: ['User', 'Date', 'Status', 'Remarks'],
-        rows: attendance.map((a) => [userName(a.userId), a.date, a.status, a.remarks ?? '']),
+        rows: attendance.map((a) => [userName(a.userId), formatDate(a.date), a.status, a.remarks ?? '']),
       }),
     },
     {
@@ -151,10 +160,14 @@ export default function ReportsPage() {
       description: 'Audit trail of system changes.',
       build: async () => ({
         headers: ['Date', 'User', 'Action', 'Ref Type', 'Ref ID'],
-        rows: activity.map((a) => [a.createdAt, userName(a.userId), a.action, a.refType ?? '', a.refId ?? '']),
+        rows: activity.map((a) => [formatDateTime(a.createdAt), userName(a.userId), a.action, a.refType ?? '', a.refId ?? '']),
       }),
     },
   ];
+
+  const reports = admin
+    ? allReports
+    : allReports.filter((r) => r.id !== 'manpower' && r.id !== 'category' && r.id !== 'activity_log');
 
   const exportXlsx = async (r: ReportSpec) => {
     setBusy(r.id + ':xlsx');
@@ -181,7 +194,7 @@ export default function ReportsPage() {
       doc.text(r.title, 14, 16);
       doc.setFontSize(9);
       doc.setTextColor(100);
-      doc.text(`Generated ${new Date().toLocaleString()} · ${user?.name ?? 'User'}`, 14, 22);
+      doc.text(`Generated ${formatDateTime(new Date().toISOString())} · ${user?.name ?? 'User'}`, 14, 22);
       autoTable(doc, {
         startY: 28,
         head: [headers],

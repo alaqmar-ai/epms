@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Pencil, Trash2, FolderOpen, Search } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
@@ -10,20 +10,40 @@ import PageHeader from '@/components/ui/PageHeader';
 import StatusPill from '@/components/ui/StatusPill';
 import MajorProjectModal from '@/components/MajorProjectModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { deleteMajorProject } from '@/lib/data/store';
+import { deleteMajorProject, listSubProjects } from '@/lib/data/store';
 import { canDeleteProjects, isAdmin } from '@/lib/types';
 import type { MajorProject } from '@/lib/types';
+import { formatDate } from '@/lib/utils';
 
 export default function MajorProjectsPage() {
   const { user, addToast } = useApp();
-  const { data: majors, loading, reload } = useMajorProjects();
+  const { data: allMajors, loading, reload } = useMajorProjects();
   const { data: users } = useUsers();
+  const admin = isAdmin(user);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<MajorProject | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MajorProject | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
+  const [myMajorIds, setMyMajorIds] = useState<Set<string> | null>(null);
+
+  // For staff, determine which majors contain at least one sub-project they own.
+  useEffect(() => {
+    if (admin) {
+      setMyMajorIds(null);
+      return;
+    }
+    if (!user?.id) return;
+    listSubProjects().then((sp) => {
+      setMyMajorIds(new Set(sp.filter((s) => s.picId === user.id).map((s) => s.majorProjectId)));
+    });
+  }, [admin, user?.id]);
+
+  const majors = useMemo(
+    () => (admin || !myMajorIds ? allMajors : allMajors.filter((m) => myMajorIds.has(m.id))),
+    [admin, allMajors, myMajorIds]
+  );
 
   const ownerName = useMemo(() => {
     const map = new Map(users.map((u) => [u.id, u.name]));
@@ -130,7 +150,7 @@ export default function MajorProjectsPage() {
                     </span>
                     <span>
                       <span className="text-text-muted">Created:</span>{' '}
-                      {new Date(m.createdAt).toLocaleDateString()}
+                      {formatDate(m.createdAt)}
                     </span>
                   </div>
                 </div>

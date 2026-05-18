@@ -1,14 +1,26 @@
-export function formatDate(dateStr: string): string {
+function pad2(n: number) { return n.toString().padStart(2, '0'); }
+
+/** dd/mm/yyyy. Accepts ISO 'YYYY-MM-DD' or any Date-parseable string. */
+export function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return '-';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** dd/mm/yyyy hh:mm */
+export function formatDateTime(dateStr?: string | null): string {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${d.getDate().toString().padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  if (isNaN(d.getTime())) return '-';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 export function formatFullDate(date: Date): string {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  return `${days[date.getDay()]}, ${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
 }
 
 export function daysBetween(start: string, end: string): number {

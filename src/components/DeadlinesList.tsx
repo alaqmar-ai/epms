@@ -5,7 +5,7 @@ import { AlertCircle, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import StatusPill from '@/components/ui/StatusPill';
 import type { StageSchedule, SubProject, MajorProject, User } from '@/lib/types';
 import { deriveStageStatus, daysUntil } from '@/lib/status';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 
 export interface DeadlineRow {
   stage: StageSchedule;
@@ -100,7 +100,7 @@ export default function DeadlinesList({ rows, showPic = false, emptyTitle, empty
               </div>
 
               <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="text-xs font-mono text-text-muted hidden sm:inline">{r.stage.planEnd}</span>
+                <span className="text-xs font-mono text-text-muted hidden sm:inline">{formatDate(r.stage.planEnd)}</span>
                 <StatusPill status={derived} />
               </div>
             </Link>

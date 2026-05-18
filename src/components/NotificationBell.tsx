@@ -5,7 +5,7 @@ import { Bell, CheckCheck, AlertTriangle, Calendar, Info } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationItem } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 
 const ICON_MAP = {
   stage_lead_time: Calendar,
@@ -92,7 +92,7 @@ function NotifRow({ n, onClick }: { n: NotificationItem; onClick: () => void }) 
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-text-primary leading-snug">{n.title}</p>
         {n.body && <p className="text-xs text-text-muted mt-0.5 leading-snug line-clamp-2">{n.body}</p>}
-        <p className="text-[10px] text-text-muted mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+        <p className="text-[10px] text-text-muted mt-1">{formatDateTime(n.createdAt)}</p>
       </div>
       {!n.isRead && <span className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />}
     </button>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, CalendarDays, ClipboardCheck } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import PageHeader from '@/components/ui/PageHeader';
 import Modal from '@/components/ui/Modal';
@@ -19,6 +19,7 @@ import {
 } from '@/lib/data/store';
 import type { AttendanceRecord, Holiday } from '@/lib/types';
 import { canEditAttendance } from '@/lib/types';
+import { cn, formatDate } from '@/lib/utils';
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -32,6 +33,8 @@ export default function AttendancePage() {
   const { user } = useApp();
   const { data: users } = useUsers();
   const today = new Date();
+  const canEdit = canEditAttendance(user);
+  const [tab, setTab] = useState<'calendar' | 'today'>('calendar');
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
   const [selectedUser, setSelectedUser] = useState<string>('');
@@ -110,15 +113,43 @@ export default function AttendancePage() {
     return counts;
   }, [records]);
 
-  const canEdit = canEditAttendance(user);
-
   return (
     <div className="p-6 md:p-10 max-w-content mx-auto">
       <PageHeader
-        title="Attendance Calendar"
-        subtitle={canEdit ? 'Admin can edit any day. Click a date to mark attendance.' : 'View your attendance record.'}
+        title="Attendance"
+        subtitle={
+          canEdit
+            ? tab === 'calendar'
+              ? 'Browse and edit any day in any month.'
+              : "Mark today's attendance for every staff member in one place."
+            : 'View your attendance record.'
+        }
+        action={
+          canEdit && (
+            <div className="inline-flex rounded-xl border border-border bg-white p-1 shadow-card">
+              <TabButton active={tab === 'calendar'} onClick={() => setTab('calendar')} icon={<CalendarDays size={14} />}>
+                Calendar
+              </TabButton>
+              <TabButton active={tab === 'today'} onClick={() => setTab('today')} icon={<ClipboardCheck size={14} />}>
+                Mark today
+              </TabButton>
+            </div>
+          )
+        }
       />
 
+      {canEdit && tab === 'today' ? (
+        <MarkTodayPanel
+          users={users}
+          holidays={holidays}
+          onChanged={() => {
+            if (selectedUser) {
+              listAttendance({ year, monthIndex }, selectedUser).then(setRecords);
+            }
+          }}
+        />
+      ) : (
+      <>
       <div className="bg-white border border-border rounded-2xl shadow-card p-5 mb-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
@@ -231,6 +262,8 @@ export default function AttendancePage() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       <AttendanceEditModal
         editing={editing}
@@ -318,7 +351,7 @@ function AttendanceEditModal({
   };
 
   return (
-    <Modal open={!!editing} onClose={onClose} title={`Attendance — ${editing.date}`} size="sm">
+    <Modal open={!!editing} onClose={onClose} title={`Attendance — ${formatDate(editing.date)}`} size="sm">
       <div className="space-y-4">
         <div className="text-xs text-text-muted">
           {isWeekend ? 'Weekend day — only "Weekend Job" is allowed.' : isHoliday ? 'Public holiday — only "Holiday Job" is allowed.' : 'Weekday'}
@@ -365,5 +398,216 @@ function AttendanceEditModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+  icon,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+        active ? 'bg-primary text-white shadow-card' : 'text-text-secondary hover:bg-elevated'
+      )}
+    >
+      {icon}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+interface MarkTodayPanelProps {
+  users: { id: string; name: string; role: string }[];
+  holidays: Holiday[];
+  onChanged: () => void;
+}
+
+function MarkTodayPanel({ users, holidays, onChanged }: MarkTodayPanelProps) {
+  const { user, addToast } = useApp();
+  const todayDate = new Date();
+  const todayIsoStr = isoDate(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+  const weekday = todayDate.getDay();
+  const isWeekend = weekday === 0 || weekday === 6;
+  const isHoliday = holidays.some((h) => h.date === todayIsoStr);
+
+  const options = isWeekend
+    ? ATTENDANCE_WEEKEND
+    : isHoliday
+    ? (['Holiday Job'] as readonly string[])
+    : ATTENDANCE_WEEKDAY;
+
+  const [rows, setRows] = useState<Record<string, { status: string; remarks: string; existingId?: string }>>({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const recs = await listAttendance({
+        year: todayDate.getFullYear(),
+        monthIndex: todayDate.getMonth(),
+      });
+      const byUser = new Map<string, AttendanceRecord>();
+      recs.filter((r) => r.date === todayIsoStr).forEach((r) => byUser.set(r.userId, r));
+      const next: Record<string, { status: string; remarks: string; existingId?: string }> = {};
+      users.forEach((u) => {
+        const existing = byUser.get(u.id);
+        next[u.id] = {
+          status: existing?.status ?? '',
+          remarks: existing?.remarks ?? '',
+          existingId: existing?.id,
+        };
+      });
+      setRows(next);
+      setLoading(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users.length]);
+
+  const save = async (uid: string) => {
+    if (!user) return;
+    const row = rows[uid];
+    if (!row?.status) return;
+    setBusy(uid);
+    try {
+      await upsertAttendance({
+        userId: uid,
+        date: todayIsoStr,
+        status: row.status as AttendanceRecord['status'],
+        remarks: row.remarks.trim() || undefined,
+        recordedBy: user.id,
+      });
+      addToast('success', 'Saved');
+      onChanged();
+    } catch (e) {
+      addToast('error', (e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const clear = async (uid: string) => {
+    const row = rows[uid];
+    if (!row?.existingId) return;
+    setBusy(uid);
+    try {
+      await deleteAttendance(row.existingId);
+      setRows((prev) => ({ ...prev, [uid]: { status: '', remarks: '', existingId: undefined } }));
+      addToast('success', 'Cleared');
+      onChanged();
+    } catch (e) {
+      addToast('error', (e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Mark today — {formatDate(todayIsoStr)}</h3>
+          <p className="text-[11px] text-text-muted mt-0.5">
+            {isWeekend ? 'Weekend — only "Weekend Job" is allowed.' : isHoliday ? 'Public holiday — only "Holiday Job" is allowed.' : 'Choose a status for each staff member.'}
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="p-5 space-y-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="skeleton h-12" />
+          ))}
+        </div>
+      ) : (
+        <table className="w-full">
+          <thead className="bg-elevated">
+            <tr>
+              <th className="px-5 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Name</th>
+              <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Status</th>
+              <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wide text-text-secondary">Remarks</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => {
+              const row = rows[u.id] ?? { status: '', remarks: '' };
+              return (
+                <tr key={u.id} className="border-t border-border">
+                  <td className="px-5 py-2.5">
+                    <p className="text-sm font-medium text-text-primary">{u.name}</p>
+                    <p className="text-[10px] font-mono text-text-muted">{u.role}</p>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <select
+                      className="select-styled py-1 text-xs"
+                      value={row.status}
+                      onChange={(e) =>
+                        setRows((prev) => ({
+                          ...prev,
+                          [u.id]: { ...prev[u.id], status: e.target.value },
+                        }))
+                      }
+                    >
+                      <option value="">— None —</option>
+                      {options.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <input
+                      className="input-styled py-1 text-xs"
+                      placeholder="Optional remarks"
+                      value={row.remarks}
+                      onChange={(e) =>
+                        setRows((prev) => ({
+                          ...prev,
+                          [u.id]: { ...prev[u.id], remarks: e.target.value },
+                        }))
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    {row.existingId && (
+                      <button
+                        onClick={() => clear(u.id)}
+                        disabled={busy === u.id}
+                        className="p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-red-50 mr-1"
+                        aria-label="Clear"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => save(u.id)}
+                      disabled={!row.status || busy === u.id}
+                      className={cn(
+                        'inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors',
+                        row.status ? 'bg-primary text-white hover:bg-blue-700' : 'bg-elevated text-text-muted cursor-not-allowed'
+                      )}
+                    >
+                      {busy === u.id ? 'Saving…' : row.existingId ? 'Update' : 'Save'}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }

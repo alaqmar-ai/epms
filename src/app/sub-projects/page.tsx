@@ -16,14 +16,21 @@ import { deleteSubProject } from '@/lib/data/store';
 import { isAdmin, canDeleteProjects } from '@/lib/types';
 import type { SubProject } from '@/lib/types';
 import { EQUIPMENT_GROUPS, SOURCES } from '@/lib/constants';
+import { formatDate } from '@/lib/utils';
 
 export default function SubProjectsPage() {
   const params = useSearchParams();
   const majorFilter = params.get('major') ?? '';
   const { user, addToast } = useApp();
-  const { data: subs, loading, reload } = useSubProjects(majorFilter || undefined);
+  const { data: allSubs, loading, reload } = useSubProjects(majorFilter || undefined);
   const { data: majors } = useMajorProjects();
   const { data: users } = useUsers();
+
+  // Staff only sees their own assigned sub-projects.
+  const subs = useMemo(
+    () => (isAdmin(user) ? allSubs : allSubs.filter((s) => s.picId === user?.id)),
+    [allSubs, user]
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<SubProject | null>(null);
@@ -179,8 +186,8 @@ export default function SubProjectsPage() {
                   <td>{s.equipmentGroup}</td>
                   <td>{s.source}</td>
                   <td>{userName(s.picId)}</td>
-                  <td className="font-mono text-xs">{s.plannedStart ?? '—'}</td>
-                  <td className="font-mono text-xs">{s.plannedEnd ?? '—'}</td>
+                  <td className="font-mono text-xs">{s.plannedStart ? formatDate(s.plannedStart) : '—'}</td>
+                  <td className="font-mono text-xs">{s.plannedEnd ? formatDate(s.plannedEnd) : '—'}</td>
                   <td>
                     <div className="flex items-center gap-2">
                       <div className="w-20 h-1.5 rounded-full bg-elevated overflow-hidden">

@@ -17,7 +17,7 @@ import {
 import { useUsers } from '@/hooks/useUsers';
 import type { SubProject, StageSchedule, MajorProject, Status } from '@/lib/types';
 import { STATUSES } from '@/lib/constants';
-import { planDuration } from '@/lib/utils';
+import { planDuration, formatDate } from '@/lib/utils';
 import { deriveStageStatus, progressOfSubProject } from '@/lib/status';
 import { isAdmin } from '@/lib/types';
 
@@ -142,10 +142,10 @@ export default function SubProjectDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <SummaryStat label="PIC" value={userName(sub.picId)} />
         <SummaryStat label="Category" value={sub.category} />
-        <SummaryStat label="Plan Start" value={sub.plannedStart ?? '—'} mono />
-        <SummaryStat label="Plan End" value={sub.plannedEnd ?? '—'} mono />
-        <SummaryStat label="Actual Start" value={sub.actualStart ?? '—'} mono />
-        <SummaryStat label="Actual End" value={sub.actualEnd ?? '—'} mono />
+        <SummaryStat label="Plan Start" value={sub.plannedStart ? formatDate(sub.plannedStart) : '—'} mono />
+        <SummaryStat label="Plan End" value={sub.plannedEnd ? formatDate(sub.plannedEnd) : '—'} mono />
+        <SummaryStat label="Actual Start" value={sub.actualStart ? formatDate(sub.actualStart) : '—'} mono />
+        <SummaryStat label="Actual End" value={sub.actualEnd ? formatDate(sub.actualEnd) : '—'} mono />
         <SummaryStat
           label="Planned Duration"
           value={`${planDuration(sub.plannedStart, sub.plannedEnd)} d`}

@@ -7,6 +7,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import { isAdmin } from '@/lib/types';
 import { listHolidays, createHoliday, deleteHoliday, listActivity, listUsers } from '@/lib/data/store';
 import type { Holiday, HolidayKind, ActivityLog, User } from '@/lib/types';
+import { formatDate, formatDateTime } from '@/lib/utils';
 
 export default function SettingsPage() {
   const { user, addToast } = useApp();
@@ -128,7 +129,7 @@ export default function SettingsPage() {
               <tbody>
                 {holidays.map((h) => (
                   <tr key={h.id} className="border-t border-border">
-                    <td className="px-5 py-3 font-mono text-sm">{h.date}</td>
+                    <td className="px-5 py-3 font-mono text-sm">{formatDate(h.date)}</td>
                     <td className="px-3 py-3 text-sm font-medium text-text-primary">{h.name}</td>
                     <td className="px-3 py-3 text-xs">
                       <span className={`pill ${h.kind === 'Public Holiday' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-violet-50 text-violet-700 border border-violet-100'}`}>
@@ -170,7 +171,7 @@ export default function SettingsPage() {
               {activity.map((a) => (
                 <tr key={a.id} className="border-t border-border">
                   <td className="px-5 py-2.5 text-xs font-mono text-text-muted whitespace-nowrap">
-                    {new Date(a.createdAt).toLocaleString()}
+                    {formatDateTime(a.createdAt)}
                   </td>
                   <td className="px-3 py-2.5 text-xs text-text-primary">{userName(a.userId)}</td>
                   <td className="px-3 py-2.5 text-xs">

@@ -64,23 +64,8 @@ export default function Sidebar({ user, projectCount, onLogout }: SidebarProps) 
 
   const sidebar = (
     <div className="flex flex-col h-full bg-white border-r border-border">
-      {/* Brand */}
-      <div className="px-5 pt-5 pb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-card">
-            <span className="text-white text-[11px] font-bold tracking-wider">EP</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-text-primary tracking-tight">EPMS</h1>
-            <p className="text-[10px] text-text-muted leading-none mt-0.5">Project Monitoring</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="h-px bg-border mx-4" />
-
       {/* Nav */}
-      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 pt-5 pb-4 px-3 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
