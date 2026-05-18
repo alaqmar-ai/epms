@@ -7,12 +7,13 @@ import PageHeader from '@/components/ui/PageHeader';
 import DeadlinesList, { buildDeadlineRows, type DeadlineRow } from '@/components/DeadlinesList';
 import {
   listSubProjects,
-  listStages,
+  listStagesForSubs,
   listMajorProjects,
   listUsers,
 } from '@/lib/data/store';
 import type { StageSchedule, SubProject, MajorProject, User } from '@/lib/types';
 import { isAdmin } from '@/lib/types';
+import { todayIso, daysUntil } from '@/lib/status';
 import { cn } from '@/lib/utils';
 
 export default function MyTasksPage() {
@@ -31,9 +32,7 @@ export default function MyTasksPage() {
       setSubs(sp);
       setMajors(mp);
       setUsers(us);
-      const all: StageSchedule[] = [];
-      for (const s of sp) all.push(...(await listStages(s.id)));
-      setStages(all);
+      setStages(await listStagesForSubs(sp.map((s) => s.id)));
       setLoading(false);
     })();
   }, []);
@@ -49,6 +48,12 @@ export default function MyTasksPage() {
   );
 
   const activeRows = view === 'mine' ? mineRows : allRows;
+  const today = todayIso();
+  const overdueCount = activeRows.filter((r) => (r.stage.planEnd ?? '') < today).length;
+  const dueThisWeek = activeRows.filter((r) => {
+    const d = daysUntil(r.stage.planEnd);
+    return d >= 0 && d <= 7;
+  }).length;
 
   return (
     <div className="p-6 md:p-10 max-w-content mx-auto">
@@ -73,11 +78,10 @@ export default function MyTasksPage() {
         }
       />
 
-      {/* Counts pill row */}
       <div className="flex flex-wrap gap-2 mb-4">
         <CountPill label="Open" value={activeRows.length} tone="blue" />
-        <CountPill label="Overdue" value={activeRows.filter((r) => (r.stage.planEnd ?? '') < todayIso()).length} tone="red" />
-        <CountPill label="Due this week" value={activeRows.filter((r) => withinDays(r.stage.planEnd, 7)).length} tone="amber" />
+        <CountPill label="Overdue" value={overdueCount} tone="red" />
+        <CountPill label="Due this week" value={dueThisWeek} tone="amber" />
       </div>
 
       <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
@@ -147,17 +151,4 @@ function CountPill({ label, value, tone }: { label: string; value: number; tone:
       <span className="font-mono font-bold">{value}</span>
     </div>
   );
-}
-
-function todayIso() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function withinDays(date: string | undefined, n: number) {
-  if (!date) return false;
-  const t = new Date(todayIso());
-  const d = new Date(date);
-  const diff = Math.round((d.getTime() - t.getTime()) / 86400000);
-  return diff >= 0 && diff <= n;
 }

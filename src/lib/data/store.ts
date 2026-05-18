@@ -311,6 +311,16 @@ export async function listStages(subProjectId: string): Promise<StageSchedule[]>
     .sort((a, b) => a.stageIndex - b.stageIndex);
 }
 
+/** Batched stage fetch across many sub-projects (single query when Neon-enabled). */
+export async function listStagesForSubs(subProjectIds: string[]): Promise<StageSchedule[]> {
+  if (subProjectIds.length === 0) return [];
+  if (useNeon) return srv.listStagesForSubsAction(subProjectIds);
+  const ids = new Set(subProjectIds);
+  return load<StageSchedule[]>(KEY.stages, [])
+    .filter((s) => ids.has(s.subProjectId))
+    .sort((a, b) => a.subProjectId.localeCompare(b.subProjectId) || a.stageIndex - b.stageIndex);
+}
+
 export async function updateStage(id: string, patch: Partial<StageSchedule>): Promise<StageSchedule> {
   if (useNeon) {
     const st = await srv.updateStageAction(id, patch);

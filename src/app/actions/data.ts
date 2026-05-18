@@ -160,15 +160,13 @@ export async function createSubProjectAction(input: {
   `) as Record<string, unknown>[];
   const sub = mapSub(rows[0]);
 
-  // Auto-seed empty stage rows
   const STAGE_NAMES = ['Concept', 'Design', 'Fabrication', 'Installation', 'Trial', 'Validation', 'Completion'];
-  for (let i = 0; i < STAGE_NAMES.length; i++) {
-    await sql`
-      insert into stage_schedules (sub_project_id, stage_index, stage_name)
-      values (${sub.id}, ${i}, ${STAGE_NAMES[i]})
-      on conflict do nothing
-    `;
-  }
+  await sql`
+    insert into stage_schedules (sub_project_id, stage_index, stage_name)
+    select ${sub.id}::uuid, idx - 1, name::stage_enum
+    from unnest(${STAGE_NAMES}::text[]) with ordinality as t(name, idx)
+    on conflict do nothing
+  `;
   return sub;
 }
 
@@ -211,6 +209,18 @@ export async function listStagesAction(subProjectId: string): Promise<StageSched
     select * from stage_schedules
     where sub_project_id = ${subProjectId}
     order by stage_index
+  `) as Record<string, unknown>[];
+  return rows.map(mapStage);
+}
+
+/** Single-query fetch for stages across many sub-projects (collapses N+1 patterns). */
+export async function listStagesForSubsAction(subProjectIds: string[]): Promise<StageSchedule[]> {
+  if (subProjectIds.length === 0) return [];
+  const sql = requireSql();
+  const rows = (await sql`
+    select * from stage_schedules
+    where sub_project_id = any(${subProjectIds}::uuid[])
+    order by sub_project_id, stage_index
   `) as Record<string, unknown>[];
   return rows.map(mapStage);
 }

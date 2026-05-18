@@ -24,7 +24,7 @@ import { isAdmin } from '@/lib/types';
 import {
   listMajorProjects,
   listSubProjects,
-  listStages,
+  listStagesForSubs,
   listUsers,
 } from '@/lib/data/store';
 import type { MajorProject, SubProject, StageSchedule, User } from '@/lib/types';
@@ -46,13 +46,10 @@ export default function DashboardPage() {
       setLoading(true);
       const [mp, sp, us] = await Promise.all([listMajorProjects(), listSubProjects(), listUsers()]);
       setMajors(mp);
-      // Staff only sees the sub-projects they own.
       const scopedSubs = admin ? sp : sp.filter((s) => s.picId === user?.id);
       setSubs(scopedSubs);
       setUsers(us);
-      const all: StageSchedule[] = [];
-      for (const s of scopedSubs) all.push(...(await listStages(s.id)));
-      setStages(all);
+      setStages(await listStagesForSubs(scopedSubs.map((s) => s.id)));
       setLoading(false);
     })();
   }, [admin, user?.id]);

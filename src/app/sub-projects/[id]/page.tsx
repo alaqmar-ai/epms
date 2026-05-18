@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -25,18 +25,13 @@ export default function SubProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { user, addToast } = useApp();
-  const { data: users } = useUsers();
+  const { userName } = useUsers();
 
   const [sub, setSub] = useState<SubProject | null>(null);
   const [major, setMajor] = useState<MajorProject | null>(null);
   const [stages, setStages] = useState<StageSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
-
-  const userName = useMemo(() => {
-    const map = new Map(users.map((u) => [u.id, u.name]));
-    return (uid?: string) => (uid ? map.get(uid) ?? '-' : '-');
-  }, [users]);
 
   const load = async () => {
     setLoading(true);
@@ -142,10 +137,10 @@ export default function SubProjectDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <SummaryStat label="PIC" value={userName(sub.picId)} />
         <SummaryStat label="Category" value={sub.category} />
-        <SummaryStat label="Plan Start" value={sub.plannedStart ? formatDate(sub.plannedStart) : '-'} mono />
-        <SummaryStat label="Plan End" value={sub.plannedEnd ? formatDate(sub.plannedEnd) : '-'} mono />
-        <SummaryStat label="Actual Start" value={sub.actualStart ? formatDate(sub.actualStart) : '-'} mono />
-        <SummaryStat label="Actual End" value={sub.actualEnd ? formatDate(sub.actualEnd) : '-'} mono />
+        <SummaryStat label="Plan Start" value={formatDate(sub.plannedStart)} mono />
+        <SummaryStat label="Plan End" value={formatDate(sub.plannedEnd)} mono />
+        <SummaryStat label="Actual Start" value={formatDate(sub.actualStart)} mono />
+        <SummaryStat label="Actual End" value={formatDate(sub.actualEnd)} mono />
         <SummaryStat
           label="Planned Duration"
           value={`${planDuration(sub.plannedStart, sub.plannedEnd)} d`}

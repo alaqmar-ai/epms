@@ -9,6 +9,7 @@ import { useUsers } from '@/hooks/useUsers';
 import {
   listSubProjects,
   listStages,
+  listStagesForSubs,
   listMajorProjects,
   updateStage,
   updateSubProject,
@@ -28,7 +29,7 @@ const COLUMN_DAYS = 7;
 
 export default function DailyProgressPage() {
   const { user, addToast } = useApp();
-  const { data: users } = useUsers();
+  const { userName } = useUsers();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -37,11 +38,6 @@ export default function DailyProgressPage() {
 
   const admin = isAdmin(user);
 
-  const userName = useMemo(() => {
-    const map = new Map(users.map((u) => [u.id, u.name]));
-    return (id: string) => map.get(id) ?? '-';
-  }, [users]);
-
   const load = async () => {
     setLoading(true);
     const today = todayIso();
@@ -49,16 +45,15 @@ export default function DailyProgressPage() {
     const [subs, majors] = await Promise.all([listSubProjects(), listMajorProjects()]);
     const majorById = new Map(majors.map((m) => [m.id, m]));
     const scopedSubs = admin ? subs : subs.filter((s) => s.picId === user?.id);
+    const subById = new Map(scopedSubs.map((s) => [s.id, s]));
+    const allStages = await listStagesForSubs(scopedSubs.map((s) => s.id));
     const collected: Row[] = [];
-    for (const sub of scopedSubs) {
-      const stages = await listStages(sub.id);
-      for (const s of stages) {
-        if (s.status === 'Completed' || s.status === 'Cancelled') continue;
-        if (!s.planEnd) continue;
-        if (s.planEnd <= horizon) {
-          collected.push({ stage: s, sub, major: majorById.get(sub.majorProjectId) });
-        }
-      }
+    for (const s of allStages) {
+      if (s.status === 'Completed' || s.status === 'Cancelled') continue;
+      if (!s.planEnd || s.planEnd > horizon) continue;
+      const sub = subById.get(s.subProjectId);
+      if (!sub) continue;
+      collected.push({ stage: s, sub, major: majorById.get(sub.majorProjectId) });
     }
     setRows(collected);
     setLoading(false);
@@ -134,7 +129,7 @@ export default function DailyProgressPage() {
     setSaving(r.stage.id);
     try {
       const nextStatus = deriveStageStatus({
-        status: r.stage.status === 'Pending' ? 'Pending' : r.stage.status,
+        status: r.stage.status,
         planEnd: targetIso,
         actualEnd: r.stage.actualEnd,
       });

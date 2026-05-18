@@ -18,7 +18,7 @@ import { formatDate } from '@/lib/utils';
 export default function MajorProjectsPage() {
   const { user, addToast } = useApp();
   const { data: allMajors, loading, reload } = useMajorProjects();
-  const { data: users } = useUsers();
+  const { userName } = useUsers();
   const admin = isAdmin(user);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -45,11 +45,6 @@ export default function MajorProjectsPage() {
     [admin, allMajors, myMajorIds]
   );
 
-  const ownerName = useMemo(() => {
-    const map = new Map(users.map((u) => [u.id, u.name]));
-    return (id?: string) => (id ? map.get(id) ?? '-' : '-');
-  }, [users]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return majors;
@@ -57,9 +52,9 @@ export default function MajorProjectsPage() {
       (m) =>
         m.projectName.toLowerCase().includes(q) ||
         (m.description ?? '').toLowerCase().includes(q) ||
-        ownerName(m.ownerId).toLowerCase().includes(q)
+        userName(m.ownerId).toLowerCase().includes(q)
     );
-  }, [majors, search, ownerName]);
+  }, [majors, search, userName]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -146,7 +141,7 @@ export default function MajorProjectsPage() {
                   </p>
                   <div className="flex items-center gap-4 mt-3 text-xs text-text-secondary">
                     <span>
-                      <span className="text-text-muted">Owner:</span> {ownerName(m.ownerId)}
+                      <span className="text-text-muted">Owner:</span> {userName(m.ownerId)}
                     </span>
                     <span>
                       <span className="text-text-muted">Created:</span>{' '}

@@ -21,7 +21,7 @@ import { isAdmin } from '@/lib/types';
 import {
   listMajorProjects,
   listSubProjects,
-  listStages,
+  listStagesForSubs,
   listAttendance,
   listUsers,
 } from '@/lib/data/store';
@@ -55,9 +55,7 @@ export default function AnalyticsPage() {
       const scopedSubs = admin ? sp : sp.filter((s) => s.picId === user?.id);
       setSubs(scopedSubs);
       setUsers(us);
-      const all: StageSchedule[] = [];
-      for (const s of scopedSubs) all.push(...(await listStages(s.id)));
-      setStages(all);
+      setStages(await listStagesForSubs(scopedSubs.map((s) => s.id)));
       const today = new Date();
       const att = await listAttendance({ year: today.getFullYear(), monthIndex: today.getMonth() });
       setAttendance(admin ? att : att.filter((a) => a.userId === user?.id));
@@ -388,9 +386,7 @@ function CascadeSummary({
                 <tr key={s.id} className="border-t border-border">
                   <td className="px-3 py-2 font-medium text-text-primary">{s.projectName}</td>
                   <td className="px-3 py-2 text-text-secondary">{userById.get(s.picId)?.name ?? '-'}</td>
-                  <td className="px-3 py-2 font-mono text-text-secondary">
-                    {s.plannedEnd ? formatDate(s.plannedEnd) : '-'}
-                  </td>
+                  <td className="px-3 py-2 font-mono text-text-secondary">{formatDate(s.plannedEnd)}</td>
                   <td className="px-3 py-2 font-mono text-text-secondary">{Math.round(s.progress)}%</td>
                   <td className="px-3 py-2"><StatusPill status={s.status} /></td>
                 </tr>

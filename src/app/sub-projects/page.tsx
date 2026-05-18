@@ -24,7 +24,7 @@ export default function SubProjectsPage() {
   const { user, addToast } = useApp();
   const { data: allSubs, loading, reload } = useSubProjects(majorFilter || undefined);
   const { data: majors } = useMajorProjects();
-  const { data: users } = useUsers();
+  const { data: users, userName } = useUsers();
 
   // Staff only sees their own assigned sub-projects.
   const subs = useMemo(
@@ -46,10 +46,6 @@ export default function SubProjectsPage() {
     const map = new Map(majors.map((m) => [m.id, m.projectName]));
     return (id: string) => map.get(id) ?? '-';
   }, [majors]);
-  const userName = useMemo(() => {
-    const map = new Map(users.map((u) => [u.id, u.name]));
-    return (id: string) => map.get(id) ?? '-';
-  }, [users]);
 
   const filtered = useMemo(() => {
     return subs.filter(
@@ -186,8 +182,8 @@ export default function SubProjectsPage() {
                   <td>{s.equipmentGroup}</td>
                   <td>{s.source}</td>
                   <td>{userName(s.picId)}</td>
-                  <td className="font-mono text-xs">{s.plannedStart ? formatDate(s.plannedStart) : '-'}</td>
-                  <td className="font-mono text-xs">{s.plannedEnd ? formatDate(s.plannedEnd) : '-'}</td>
+                  <td className="font-mono text-xs">{formatDate(s.plannedStart)}</td>
+                  <td className="font-mono text-xs">{formatDate(s.plannedEnd)}</td>
                   <td>
                     <div className="flex items-center gap-2">
                       <div className="w-20 h-1.5 rounded-full bg-elevated overflow-hidden">

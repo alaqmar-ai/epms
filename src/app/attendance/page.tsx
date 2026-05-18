@@ -519,48 +519,45 @@ function MarkTodayPanel({ users, holidays, onChanged }: MarkTodayPanelProps) {
       return;
     }
     setBulkBusy(true);
-    let ok = 0;
-    let fail = 0;
-    for (const u of targets) {
-      const row = rows[u.id];
-      try {
-        await upsertAttendance({
-          userId: u.id,
-          date: todayIsoStr,
-          status: row.status as AttendanceRecord['status'],
-          remarks: row.remarks.trim() || undefined,
-          recordedBy: user.id,
-        });
-        ok++;
-      } catch {
-        fail++;
+    try {
+      const results = await Promise.allSettled(
+        targets.map((u) =>
+          upsertAttendance({
+            userId: u.id,
+            date: todayIsoStr,
+            status: rows[u.id].status as AttendanceRecord['status'],
+            remarks: rows[u.id].remarks.trim() || undefined,
+            recordedBy: user.id,
+          })
+        )
+      );
+      const saved = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+      const fail = results.length - saved.length;
+      if (saved.length > 0) {
+        addToast(
+          'success',
+          `Saved ${saved.length} attendance record${saved.length === 1 ? '' : 's'}${fail > 0 ? ` (${fail} failed)` : ''}`
+        );
+      } else if (fail > 0) {
+        addToast('error', `Failed to save ${fail} record${fail === 1 ? '' : 's'}`);
       }
+      if (saved.length > 0) {
+        setRows((prev) => {
+          const next = { ...prev };
+          saved.forEach((rec) => {
+            next[rec.userId] = {
+              status: rec.status,
+              remarks: rec.remarks ?? '',
+              existingId: rec.id,
+            };
+          });
+          return next;
+        });
+        onChanged();
+      }
+    } finally {
+      setBulkBusy(false);
     }
-    if (ok > 0) addToast('success', `Saved ${ok} attendance record${ok === 1 ? '' : 's'}${fail > 0 ? ` (${fail} failed)` : ''}`);
-    if (ok === 0 && fail > 0) addToast('error', `Failed to save ${fail} record${fail === 1 ? '' : 's'}`);
-    onChanged();
-    // Refresh local state so existingId is populated
-    const recs = await listAttendance({
-      year: todayDate.getFullYear(),
-      monthIndex: todayDate.getMonth(),
-    });
-    const byUser = new Map<string, AttendanceRecord>();
-    recs.filter((r) => r.date === todayIsoStr).forEach((r) => byUser.set(r.userId, r));
-    setRows((prev) => {
-      const next = { ...prev };
-      users.forEach((u) => {
-        const existing = byUser.get(u.id);
-        if (existing) {
-          next[u.id] = {
-            status: existing.status,
-            remarks: existing.remarks ?? '',
-            existingId: existing.id,
-          };
-        }
-      });
-      return next;
-    });
-    setBulkBusy(false);
   };
 
   const clear = async (uid: string) => {

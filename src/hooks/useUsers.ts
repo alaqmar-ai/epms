@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { User } from '@/lib/types';
 import { listUsers } from '@/lib/data/store';
 
@@ -14,5 +14,10 @@ export function useUsers() {
       .finally(() => setLoading(false));
   }, []);
 
-  return { data, loading };
+  const userName = useMemo(() => {
+    const map = new Map(data.map((u) => [u.id, u.name]));
+    return (id?: string) => (id ? map.get(id) ?? '-' : '-');
+  }, [data]);
+
+  return { data, loading, userName };
 }

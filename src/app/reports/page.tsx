@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, FileSpreadsheet, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp } from '@/components/AppProvider';
@@ -8,7 +8,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import {
   listMajorProjects,
   listSubProjects,
-  listStages,
+  listStagesForSubs,
   listAttendance,
   listActivity,
   listUsers,
@@ -56,16 +56,16 @@ export default function ReportsPage() {
       const scopedSubs = admin ? sp : sp.filter((s) => s.picId === user?.id);
       setSubs(scopedSubs);
       setActivity(ac);
-      const all: StageSchedule[] = [];
-      for (const s of scopedSubs) all.push(...(await listStages(s.id)));
-      setStages(all);
+      setStages(await listStagesForSubs(scopedSubs.map((s) => s.id)));
       const att = await listAttendance();
       setAttendance(admin ? att : att.filter((a) => a.userId === user?.id));
     })();
   }, [admin, user?.id]);
 
-  const userName = (id?: string) => users.find((u) => u.id === id)?.name ?? '-';
-  const majorName = (id: string) => majors.find((m) => m.id === id)?.projectName ?? '-';
+  const userById = useMemo(() => new Map(users.map((u) => [u.id, u.name])), [users]);
+  const majorById = useMemo(() => new Map(majors.map((m) => [m.id, m.projectName])), [majors]);
+  const userName = (id?: string) => (id ? userById.get(id) ?? '-' : '-');
+  const majorName = (id: string) => majorById.get(id) ?? '-';
 
   const allReports: ReportSpec[] = [
     {
