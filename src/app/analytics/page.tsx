@@ -462,6 +462,7 @@ type Row = {
   majorId: string;
   group: string;
   source: string;
+  installation: string;
   subId: string;
   subName: string;
   stageName: string;
@@ -471,7 +472,7 @@ type Row = {
   subProgress: number;
 };
 
-type FilterKey = 'major' | 'group' | 'source' | 'equipment' | 'step' | 'status' | 'pic';
+type FilterKey = 'major' | 'group' | 'source' | 'installation' | 'equipment' | 'step' | 'status' | 'pic';
 
 function MultiFilterAnalytics({
   majors,
@@ -488,6 +489,7 @@ function MultiFilterAnalytics({
     major: '',
     group: '',
     source: '',
+    installation: '',
     equipment: '',
     step: '',
     status: '',
@@ -504,6 +506,7 @@ function MultiFilterAnalytics({
         majorId: sub?.majorProjectId ?? '',
         group: sub?.equipmentGroup ?? '-',
         source: sub?.source ?? '-',
+        installation: sub?.installation ?? '-',
         subId: sub?.id ?? '',
         subName: sub?.projectName ?? '-',
         stageName: st.stageName,
@@ -521,6 +524,7 @@ function MultiFilterAnalytics({
     if (!skip.has('major') && filters.major && r.majorId !== filters.major) return false;
     if (!skip.has('group') && filters.group && r.group !== filters.group) return false;
     if (!skip.has('source') && filters.source && r.source !== filters.source) return false;
+    if (!skip.has('installation') && filters.installation && r.installation !== filters.installation) return false;
     if (!skip.has('equipment') && filters.equipment && r.subId !== filters.equipment) return false;
     if (!skip.has('step') && filters.step && r.stageName !== filters.step) return false;
     if (!skip.has('status') && filters.status && r.status !== filters.status) return false;
@@ -555,6 +559,13 @@ function MultiFilterAnalytics({
     return SOURCES.filter((s) => set.has(s)).map((s) => ({ value: s, label: s }));
   }, [rows, filters]);
 
+  const installationOpts = useMemo(() => {
+    const set = reachable('installation', (r) => r.installation);
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }));
+  }, [rows, filters]);
+
   const equipmentOpts = useMemo(() => {
     const ids = reachable('equipment', (r) => r.subId);
     return subs
@@ -581,7 +592,7 @@ function MultiFilterAnalytics({
 
   const set = (key: FilterKey, value: string) => setFilters((f) => ({ ...f, [key]: value }));
   const reset = () =>
-    setFilters({ major: '', group: '', source: '', equipment: '', step: '', status: '', pic: '' });
+    setFilters({ major: '', group: '', source: '', installation: '', equipment: '', step: '', status: '', pic: '' });
   const activeCount = Object.values(filters).filter(Boolean).length;
 
   // ── Aggregations over the filtered slice ──────────────────────────────────
@@ -665,7 +676,7 @@ function MultiFilterAnalytics({
       </div>
 
       {/* Filter bar */}
-      <div className="p-5 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 border-b border-border">
+      <div className="p-5 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 border-b border-border">
         <Selector
           label="Major project"
           value={filters.major}
@@ -683,6 +694,12 @@ function MultiFilterAnalytics({
           value={filters.source}
           onChange={(v) => set('source', v)}
           options={[{ value: '', label: 'All sources' }, ...sourceOpts]}
+        />
+        <Selector
+          label="Installation"
+          value={filters.installation}
+          onChange={(v) => set('installation', v)}
+          options={[{ value: '', label: 'All periods' }, ...installationOpts]}
         />
         <Selector
           label="Equipment"

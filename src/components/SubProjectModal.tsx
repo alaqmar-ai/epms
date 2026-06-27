@@ -11,8 +11,8 @@ import {
   type EquipmentGroup,
   type SourceType,
 } from '@/lib/constants';
-import type { SubProject } from '@/lib/types';
-import { createSubProject, updateSubProject } from '@/lib/data/store';
+import type { SubProject, InstallationPeriod } from '@/lib/types';
+import { createSubProject, updateSubProject, listInstallationPeriods } from '@/lib/data/store';
 import { planDuration } from '@/lib/utils';
 
 interface Props {
@@ -32,6 +32,8 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
   const [group, setGroup] = useState<EquipmentGroup | ''>('');
   const [source, setSource] = useState<SourceType | ''>('');
   const [category, setCategory] = useState('');
+  const [installation, setInstallation] = useState('');
+  const [installPeriods, setInstallPeriods] = useState<InstallationPeriod[]>([]);
   const [picId, setPicId] = useState('');
   const [plannedStart, setPlannedStart] = useState('');
   const [plannedEnd, setPlannedEnd] = useState('');
@@ -46,6 +48,7 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
       setGroup(existing.equipmentGroup);
       setSource(existing.source);
       setCategory(existing.category);
+      setInstallation(existing.installation ?? '');
       setPicId(existing.picId);
       setPlannedStart(existing.plannedStart ?? '');
       setPlannedEnd(existing.plannedEnd ?? '');
@@ -56,6 +59,7 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
       setGroup('');
       setSource('');
       setCategory('');
+      setInstallation('');
       setPicId('');
       setPlannedStart('');
       setPlannedEnd('');
@@ -64,10 +68,14 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
     setError('');
   }, [existing, defaultMajorId, open]);
 
+  useEffect(() => {
+    if (open) listInstallationPeriods().then(setInstallPeriods);
+  }, [open]);
+
   const duration = planDuration(plannedStart, plannedEnd);
 
   const handleSave = async () => {
-    if (!name.trim() || !majorId || !group || !source || !category || !picId) {
+    if (!name.trim() || !majorId || !group || !source || !category || !installation || !picId) {
       setError('All fields are required (except remarks)');
       return;
     }
@@ -84,6 +92,7 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
           equipmentGroup: group,
           source,
           category,
+          installation,
           picId,
           plannedStart: plannedStart || undefined,
           plannedEnd: plannedEnd || undefined,
@@ -96,6 +105,7 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
           equipmentGroup: group,
           source,
           category,
+          installation,
           picId,
           plannedStart: plannedStart || undefined,
           plannedEnd: plannedEnd || undefined,
@@ -177,7 +187,7 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
           </select>
         </div>
 
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
             Category
           </label>
@@ -186,6 +196,24 @@ export default function SubProjectModal({ open, onClose, onSaved, existing, defa
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+            Installation
+          </label>
+          <select
+            className="select-styled w-full"
+            value={installation}
+            onChange={(e) => setInstallation(e.target.value)}
+          >
+            <option value="">Select</option>
+            {installPeriods.map((p) => (
+              <option key={p.id} value={p.label}>
+                {p.label}
               </option>
             ))}
           </select>

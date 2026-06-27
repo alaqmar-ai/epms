@@ -14,6 +14,7 @@ import type {
   DailyTodo,
   AttendanceRecord,
   Holiday,
+  InstallationPeriod,
   NotificationItem,
   ActivityLog,
   User,
@@ -35,6 +36,7 @@ const KEY = {
   stages: 'epms_stages_v2',
   attendance: 'epms_attendance_v2',
   holidays: 'epms_holidays_v2',
+  installationPeriods: 'epms_installation_periods_v1',
   notifications: 'epms_notifications_v2',
   logs: 'epms_logs_v2',
 } as const;
@@ -233,6 +235,7 @@ export async function createSubProject(input: {
   equipmentGroup: SubProject['equipmentGroup'];
   source: SubProject['source'];
   category: string;
+  installation?: string;
   picId: string;
   plannedStart?: string;
   plannedEnd?: string;
@@ -252,6 +255,7 @@ export async function createSubProject(input: {
     equipmentGroup: input.equipmentGroup,
     source: input.source,
     category: input.category,
+    installation: input.installation,
     picId: input.picId,
     plannedStart: input.plannedStart,
     plannedEnd: input.plannedEnd,
@@ -530,6 +534,38 @@ export async function createHoliday(input: { date: string; name: string; kind: H
 export async function deleteHoliday(id: string): Promise<void> {
   if (useNeon) return srv.deleteHolidayAction(id);
   save(KEY.holidays, load<Holiday[]>(KEY.holidays, []).filter((h) => h.id !== id));
+}
+
+// ─── Installation periods (admin-managed list) ──────────────────────────────
+
+const DEFAULT_INSTALLATION_PERIODS = [
+  'March 2026', 'May 2026', 'August 2026', 'September 2026', 'March 2027', 'April 2027', 'N/A',
+];
+
+export async function listInstallationPeriods(): Promise<InstallationPeriod[]> {
+  if (useNeon) return srv.listInstallationPeriodsAction();
+  let all = load<InstallationPeriod[]>(KEY.installationPeriods, []);
+  if (all.length === 0) {
+    all = DEFAULT_INSTALLATION_PERIODS.map((label, i) => ({ id: rid('ip'), label, position: i + 1, createdAt: nowIso() }));
+    save(KEY.installationPeriods, all);
+  }
+  return all.sort((a, b) => a.position - b.position || a.label.localeCompare(b.label));
+}
+
+export async function createInstallationPeriod(label: string): Promise<InstallationPeriod> {
+  if (useNeon) return srv.createInstallationPeriodAction(label);
+  const all = load<InstallationPeriod[]>(KEY.installationPeriods, []);
+  const existing = all.find((p) => p.label === label);
+  if (existing) return existing;
+  const p: InstallationPeriod = { id: rid('ip'), label, position: all.length + 1, createdAt: nowIso() };
+  all.push(p);
+  save(KEY.installationPeriods, all);
+  return p;
+}
+
+export async function deleteInstallationPeriod(id: string): Promise<void> {
+  if (useNeon) return srv.deleteInstallationPeriodAction(id);
+  save(KEY.installationPeriods, load<InstallationPeriod[]>(KEY.installationPeriods, []).filter((p) => p.id !== id));
 }
 
 // ─── Notifications ─────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import type {
   DailyTodo,
   AttendanceRecord,
   Holiday,
+  InstallationPeriod,
   NotificationItem,
   ActivityLog,
   User,
@@ -95,6 +96,7 @@ export function mapSub(r: Row): SubProject {
     equipmentGroup: asString(r.equipment_group) as EquipmentGroup,
     source: asString(r.source) as SourceType,
     category: asString(r.category),
+    installation: asOptionalString(r.installation),
     picId: asString(r.pic_id),
     plannedStart: asDateStr(r.planned_start),
     plannedEnd: asDateStr(r.planned_end),
@@ -169,6 +171,15 @@ export function mapHoliday(r: Row): Holiday {
     date: asDateStr(r.date) ?? '',
     name: asString(r.name),
     kind: asString(r.kind) as HolidayKind,
+    createdAt: asIso(r.created_at),
+  };
+}
+
+export function mapInstallationPeriod(r: Row): InstallationPeriod {
+  return {
+    id: asString(r.id),
+    label: asString(r.label),
+    position: asNumber(r.position),
     createdAt: asIso(r.created_at),
   };
 }

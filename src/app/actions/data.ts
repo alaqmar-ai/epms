@@ -9,6 +9,7 @@ import {
   mapDailyTodo,
   mapAttendance,
   mapHoliday,
+  mapInstallationPeriod,
   mapNotification,
   mapActivity,
   mapUser,
@@ -22,6 +23,7 @@ import type {
   DailyTodo,
   AttendanceRecord,
   Holiday,
+  InstallationPeriod,
   NotificationItem,
   ActivityLog,
   User,
@@ -176,6 +178,7 @@ export async function createSubProjectAction(input: {
   equipmentGroup: EquipmentGroup;
   source: SourceType;
   category: string;
+  installation?: string;
   picId: string;
   plannedStart?: string;
   plannedEnd?: string;
@@ -184,11 +187,11 @@ export async function createSubProjectAction(input: {
   const sql = requireSql();
   const rows = (await sql`
     insert into sub_projects
-      (major_project_id, project_name, equipment_group, source, category, pic_id,
+      (major_project_id, project_name, equipment_group, source, category, installation, pic_id,
        planned_start, planned_end, remarks)
     values
       (${input.majorProjectId}, ${input.projectName}, ${input.equipmentGroup},
-       ${input.source}, ${input.category}, ${input.picId},
+       ${input.source}, ${input.category}, ${input.installation ?? null}, ${input.picId},
        ${input.plannedStart ?? null}, ${input.plannedEnd ?? null}, ${input.remarks ?? null})
     returning *
   `) as Record<string, unknown>[];
@@ -227,6 +230,7 @@ export async function updateSubProjectAction(
       equipment_group = coalesce(${(patch.equipmentGroup as string | undefined) ?? null}, equipment_group),
       source          = coalesce(${(patch.source as string | undefined) ?? null}, source),
       category        = coalesce(${patch.category ?? null}, category),
+      installation    = coalesce(${patch.installation ?? null}, installation),
       pic_id          = coalesce(${patch.picId ?? null}, pic_id),
       planned_start   = coalesce(${patch.plannedStart ?? null}, planned_start),
       planned_end     = coalesce(${patch.plannedEnd ?? null}, planned_end),
@@ -464,6 +468,30 @@ export async function createHolidayAction(input: {
 export async function deleteHolidayAction(id: string): Promise<void> {
   const sql = requireSql();
   await sql`delete from holiday_calendar where id = ${id}`;
+}
+
+// ─── Installation periods ──────────────────────────────────────────────────
+
+export async function listInstallationPeriodsAction(): Promise<InstallationPeriod[]> {
+  const sql = requireSql();
+  const rows = (await sql`select * from installation_periods order by position, label`) as Record<string, unknown>[];
+  return rows.map(mapInstallationPeriod);
+}
+
+export async function createInstallationPeriodAction(label: string): Promise<InstallationPeriod> {
+  const sql = requireSql();
+  const rows = (await sql`
+    insert into installation_periods (label, position)
+    values (${label}, coalesce((select max(position) + 1 from installation_periods), 1))
+    on conflict (label) do update set label = excluded.label
+    returning *
+  `) as Record<string, unknown>[];
+  return mapInstallationPeriod(rows[0]);
+}
+
+export async function deleteInstallationPeriodAction(id: string): Promise<void> {
+  const sql = requireSql();
+  await sql`delete from installation_periods where id = ${id}`;
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────

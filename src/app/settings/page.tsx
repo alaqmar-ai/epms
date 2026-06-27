@@ -1,13 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, CalendarDays, KeyRound } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, KeyRound, Wrench } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import PageHeader from '@/components/ui/PageHeader';
 import { isAdmin } from '@/lib/types';
-import { listHolidays, createHoliday, deleteHoliday, listActivity, listUsers } from '@/lib/data/store';
+import {
+  listHolidays,
+  createHoliday,
+  deleteHoliday,
+  listActivity,
+  listUsers,
+  listInstallationPeriods,
+  createInstallationPeriod,
+  deleteInstallationPeriod,
+} from '@/lib/data/store';
 import { changePasswordAction } from '@/app/actions/data';
-import type { Holiday, HolidayKind, ActivityLog, User } from '@/lib/types';
+import type { Holiday, HolidayKind, ActivityLog, User, InstallationPeriod } from '@/lib/types';
 import { formatDate, formatDateTime } from '@/lib/utils';
 
 export default function SettingsPage() {
@@ -26,6 +35,11 @@ export default function SettingsPage() {
   const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [activityUsers, setActivityUsers] = useState<User[]>([]);
 
+  // installation periods
+  const [installPeriods, setInstallPeriods] = useState<InstallationPeriod[]>([]);
+  const [periodLabel, setPeriodLabel] = useState('');
+  const [savingPeriod, setSavingPeriod] = useState(false);
+
   // change-password form
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -34,10 +48,16 @@ export default function SettingsPage() {
 
   const reload = async () => {
     setLoading(true);
-    const [hs, ac, us] = await Promise.all([listHolidays(), listActivity(50), listUsers()]);
+    const [hs, ac, us, ip] = await Promise.all([
+      listHolidays(),
+      listActivity(50),
+      listUsers(),
+      listInstallationPeriods(),
+    ]);
     setHolidays(hs);
     setActivity(ac);
     setActivityUsers(us);
+    setInstallPeriods(ip);
     setLoading(false);
   };
 
@@ -100,6 +120,31 @@ export default function SettingsPage() {
     try {
       await deleteHoliday(id);
       addToast('success', 'Holiday removed');
+      await reload();
+    } catch (e) {
+      addToast('error', (e as Error).message);
+    }
+  };
+
+  const addPeriod = async () => {
+    if (!periodLabel.trim()) return;
+    setSavingPeriod(true);
+    try {
+      await createInstallationPeriod(periodLabel.trim());
+      setPeriodLabel('');
+      addToast('success', 'Installation period added');
+      await reload();
+    } catch (e) {
+      addToast('error', (e as Error).message);
+    } finally {
+      setSavingPeriod(false);
+    }
+  };
+
+  const removePeriod = async (id: string) => {
+    try {
+      await deleteInstallationPeriod(id);
+      addToast('success', 'Installation period removed');
       await reload();
     } catch (e) {
       addToast('error', (e as Error).message);
@@ -222,6 +267,54 @@ export default function SettingsPage() {
                     ))}
                   </tbody>
                 </table>
+              )}
+            </div>
+          </div>
+
+          {/* Installation periods */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="md:col-span-1 bg-white border border-border rounded-2xl shadow-card p-5 h-fit">
+              <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <Wrench size={16} className="text-primary" />
+                Add installation period
+              </h3>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  className="input-styled"
+                  placeholder="e.g. June 2027"
+                  value={periodLabel}
+                  onChange={(e) => setPeriodLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addPeriod()}
+                />
+                <button onClick={addPeriod} disabled={savingPeriod || !periodLabel.trim()} className="btn-primary w-full inline-flex items-center justify-center gap-2">
+                  <Plus size={14} /> {savingPeriod ? 'Adding…' : 'Add period'}
+                </button>
+                <p className="text-[11px] text-text-muted">Shown in the Installation dropdown when creating sub projects.</p>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 bg-white border border-border rounded-2xl shadow-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-text-primary">Installation periods</h3>
+              </div>
+              {installPeriods.length === 0 ? (
+                <p className="p-10 text-sm text-text-muted text-center">No installation periods defined yet.</p>
+              ) : (
+                <div className="p-4 flex flex-wrap gap-2">
+                  {installPeriods.map((p) => (
+                    <span key={p.id} className="pill bg-elevated border border-border text-text-primary inline-flex items-center gap-2 pr-1.5">
+                      {p.label}
+                      <button
+                        onClick={() => removePeriod(p.id)}
+                        className="p-0.5 text-text-muted hover:text-danger hover:bg-red-50 rounded"
+                        aria-label={`Remove ${p.label}`}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </div>

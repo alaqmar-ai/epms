@@ -62,6 +62,7 @@ export interface SubProject {
   equipmentGroup: EquipmentGroup;
   source: SourceType;
   category: string;
+  installation?: string; // admin-managed period label, e.g. "March 2026" / "N/A"
   picId: string; // user id
   plannedStart?: string;
   plannedEnd?: string;
@@ -123,6 +124,13 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   remarks?: string;
   recordedBy: string; // admin user id
+  createdAt: string;
+}
+
+export interface InstallationPeriod {
+  id: string;
+  label: string;
+  position: number;
   createdAt: string;
 }
 
