@@ -249,48 +249,54 @@ export default function AnalyticsPage() {
           )}
         </Card>
 
-        <Card title="By source">
-          {bySource.length === 0 ? <EmptyChart /> : (
+        {!admin && (
+          <Card title="By source">
+            {bySource.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={bySource} dataKey="count" nameKey="name" outerRadius={100} innerRadius={50}>
+                    {bySource.map((_, i) => (
+                      <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+        )}
+
+        {!admin && (
+          <Card title="Delay analytics (stages)">
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie data={bySource} dataKey="count" nameKey="name" outerRadius={100} innerRadius={50}>
-                  {bySource.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
+                <Pie data={delayCounts} dataKey="value" outerRadius={100} innerRadius={50} label>
+                  <Cell fill="#10B981" />
+                  <Cell fill="#EF4444" />
                 </Pie>
                 <Tooltip />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
-          )}
-        </Card>
+          </Card>
+        )}
 
-        <Card title="Delay analytics (stages)">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={delayCounts} dataKey="value" outerRadius={100} innerRadius={50} label>
-                <Cell fill="#10B981" />
-                <Cell fill="#EF4444" />
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card title={admin ? 'Attendance (current month)' : 'Your attendance (current month)'}>
-          {attendanceCounts.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={attendanceCounts} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis type="number" stroke="#64748B" fontSize={11} />
-                <YAxis type="category" dataKey="name" stroke="#64748B" fontSize={11} width={140} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#06B6D4" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
+        {!admin && (
+          <Card title="Your attendance (current month)">
+            {attendanceCounts.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={attendanceCounts} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis type="number" stroke="#64748B" fontSize={11} />
+                  <YAxis type="category" dataKey="name" stroke="#64748B" fontSize={11} width={140} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#06B6D4" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+        )}
       </div>
 
       {/* Multi-filter explorer (admin) ─────────────────────────────────── */}
