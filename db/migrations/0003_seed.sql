@@ -1,5 +1,5 @@
 -- ============================================================================
--- EPMS — Seed data (idempotent). Demo users only — sample projects are
+-- Project Digital Transformation — Seed data (idempotent). Demo users only — sample projects are
 -- generated client-side from src/lib/data/seed.ts on first browser load.
 -- ============================================================================
 

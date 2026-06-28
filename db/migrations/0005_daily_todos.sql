@@ -1,5 +1,5 @@
 -- ============================================================================
--- EPMS - personal daily todos. One row per task, scoped to a user.
+-- Project Digital Transformation - personal daily todos. One row per task, scoped to a user.
 -- Independent of the assigned-stage schedule; each user (admin or staff)
 -- writes their own.
 -- ============================================================================

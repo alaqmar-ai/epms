@@ -1,5 +1,5 @@
 -- ============================================================================
--- EPMS — Enterprise Project Monitoring System — initial schema (Neon Postgres)
+-- Project Digital Transformation — initial schema (Neon Postgres)
 --
 -- Authorization is enforced at the application layer (TypeScript role checks).
 -- No RLS — Neon doesn't ship auth.uid(); all access goes through Server Actions

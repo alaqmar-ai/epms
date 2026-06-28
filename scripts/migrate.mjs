@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * EPMS - migration runner. Applies every db/migrations/*.sql to $DATABASE_URL.
+ * Project Digital Transformation - migration runner. Applies every db/migrations/*.sql to $DATABASE_URL.
  *
  * Uses `pg` (the original Postgres client) because it supports multi-statement
  * SQL bodies with dollar-quoted blocks in a single round-trip - which Neon's

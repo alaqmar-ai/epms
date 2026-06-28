@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * EPMS - production handover setup.
+ * Project Digital Transformation - production handover setup.
  *
  * DESTRUCTIVE: clears all sample project data and replaces every user account
  * with the real handover roster. Run once against the production DB:

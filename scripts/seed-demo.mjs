@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * EPMS - demo data seeder for Neon.
+ * Project Digital Transformation - demo data seeder for Neon.
  *
  * Populates major_projects, sub_projects, stage_schedules, attendance_records
  * and holiday_calendar with realistic-looking content. Idempotent - exits

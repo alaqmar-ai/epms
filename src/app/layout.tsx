@@ -20,13 +20,13 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'EPMS - Enterprise Project Monitoring System',
-    template: '%s · EPMS',
+    default: 'Project Digital Transformation',
+    template: '%s · Project Digital Transformation',
   },
   description:
-    'Enterprise Project Monitoring System - track equipment projects, schedules, attendance, and analytics for manufacturing and engineering operations.',
-  keywords: ['EPMS', 'project monitoring', 'engineering', 'manufacturing', 'workforce'],
-  authors: [{ name: 'EPMS' }],
+    'Project Digital Transformation - track equipment projects, schedules, attendance, and analytics for manufacturing and engineering operations.',
+  keywords: ['Project Digital Transformation', 'project monitoring', 'engineering', 'manufacturing', 'workforce'],
+  authors: [{ name: 'Project Digital Transformation' }],
   robots: { index: false, follow: false },
 };
 

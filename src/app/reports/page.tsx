@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { FileText, FileSpreadsheet, Download } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { useApp } from '@/components/AppProvider';
 import PageHeader from '@/components/ui/PageHeader';
 import {
@@ -172,6 +171,7 @@ export default function ReportsPage() {
   const exportXlsx = async (r: ReportSpec) => {
     setBusy(r.id + ':xlsx');
     try {
+      const XLSX = await import('xlsx');
       const { headers, rows } = await r.build();
       const data = [headers, ...rows];
       const ws = XLSX.utils.aoa_to_sheet(data);

@@ -1,5 +1,5 @@
 -- ============================================================================
--- EPMS - per-stage checkpoints (todolist).
+-- Project Digital Transformation - per-stage checkpoints (todolist).
 -- Each stage_schedule row can have zero-or-more checkpoints; cascade-deleted
 -- when the stage is removed.
 -- ============================================================================

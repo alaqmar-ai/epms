@@ -37,11 +37,11 @@ export default function ToastContainer({ toasts, onRemove }: ToastContainerProps
             ) : (
               <XCircle size={16} className="text-red-400 flex-shrink-0" />
             )}
-            <span className="text-[13px] text-text-primary">{toast.message}</span>
+            <span className="text-[13px] text-slate-50">{toast.message}</span>
           </div>
           <button
             onClick={() => onRemove(toast.id)}
-            className="absolute top-2.5 right-2.5 text-text-muted hover:text-text-primary cursor-pointer transition-colors"
+            className="absolute top-2.5 right-2.5 text-slate-400 hover:text-slate-100 cursor-pointer transition-colors"
           >
             <X size={14} />
           </button>

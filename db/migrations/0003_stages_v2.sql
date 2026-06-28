@@ -1,5 +1,5 @@
 -- ============================================================================
--- EPMS - Stage model v2: 7 stages -> 11 stages.
+-- Project Digital Transformation - Stage model v2: 7 stages -> 11 stages.
 --
 -- New stage order:
 --   1. Concept

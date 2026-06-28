@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Download, FileSpreadsheet, Users, Boxes, Loader2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { useApp } from '@/components/AppProvider';
 import { EQUIPMENT_GROUPS } from '@/lib/constants';
 import { getProjectStatus, getProjectProgress, getCurrentStage, getStageStatus } from '@/lib/status';
@@ -16,8 +15,9 @@ export default function ExportPage() {
 
   const pics = Array.from(new Set(projects.map((p) => p.pic).filter(Boolean)));
 
-  const generateExcel = (filtered: Project[], filterLabel: string) => {
+  const generateExcel = async (filtered: Project[], filterLabel: string) => {
     try {
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
       const today = new Date().toISOString().split('T')[0];
 
@@ -129,7 +129,7 @@ export default function ExportPage() {
       ws4['!cols'] = [{ wch: 14 }, { wch: 25 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, ws4, 'Delay Report');
 
-      const fileName = `EPMS_Export_${filterLabel}_${today}.xlsx`;
+      const fileName = `Project_Digital_Transformation_Export_${filterLabel}_${today}.xlsx`;
       XLSX.writeFile(wb, fileName);
       addToast('success', `Exported ${fileName}`);
     } catch {
