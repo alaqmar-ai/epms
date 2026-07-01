@@ -11,6 +11,7 @@ const ICON_MAP = {
   stage_lead_time: Calendar,
   stage_delayed: AlertTriangle,
   project_delayed: AlertTriangle,
+  schedule_changed: Calendar,
   system: Info,
 } as const;
 
@@ -18,6 +19,7 @@ const TONE_MAP = {
   stage_lead_time: 'text-blue-600 bg-blue-50',
   stage_delayed: 'text-red-600 bg-red-50',
   project_delayed: 'text-red-600 bg-red-50',
+  schedule_changed: 'text-amber-600 bg-amber-50',
   system: 'text-text-secondary bg-elevated',
 } as const;
 

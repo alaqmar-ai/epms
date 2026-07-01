@@ -105,6 +105,9 @@ export function mapSub(r: Row): SubProject {
     progress: asNumber(r.progress),
     status: asString(r.status) as Status,
     remarks: asOptionalString(r.remarks),
+    scheduleStatus: (asString(r.schedule_status) as 'draft' | 'submitted') || 'draft',
+    scheduleSubmittedAt: r.schedule_submitted_at ? asIso(r.schedule_submitted_at) : undefined,
+    scheduleSubmittedBy: asOptionalString(r.schedule_submitted_by),
     createdAt: asIso(r.created_at),
     updatedAt: asIso(r.updated_at),
   };
@@ -119,6 +122,8 @@ export function mapStage(r: Row): StageSchedule {
     planStart: asDateStr(r.plan_start),
     planEnd: asDateStr(r.plan_end),
     plannedDurationDays: asNumber(r.planned_duration_days),
+    baselineStart: asDateStr(r.baseline_start),
+    baselineEnd: asDateStr(r.baseline_end),
     actualStart: asDateStr(r.actual_start),
     actualEnd: asDateStr(r.actual_end),
     actualDurationDays: asNumber(r.actual_duration_days),

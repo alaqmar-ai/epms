@@ -34,7 +34,8 @@ import type {
   HolidayKind,
   NotificationKind,
 } from '@/lib/types';
-import { STAGES } from '@/lib/constants';
+import { STAGES, SCHEDULE_OVERSEER_USERNAME } from '@/lib/constants';
+import { computeScheduleRecipients } from '@/lib/schedule';
 import { hashPassword, verifyPassword } from '@/lib/auth';
 
 export async function dbAvailableAction(): Promise<boolean> {
@@ -282,6 +283,74 @@ export async function updateStageAction(
   `) as Record<string, unknown>[];
   if (!rows[0]) throw new Error('Stage not found');
   return mapStage(rows[0]);
+}
+
+/**
+ * Submit (baseline-lock) a sub-project schedule. Requires every stage to have a
+ * plan start+end; snapshots the plan into baseline columns on the FIRST submit
+ * only, so the "original plan" ghost never drifts.
+ */
+export async function submitScheduleAction(subProjectId: string, userId: string): Promise<SubProject> {
+  const sql = requireSql();
+  const missing = (await sql`
+    select stage_name from stage_schedules
+    where sub_project_id = ${subProjectId} and (plan_start is null or plan_end is null)
+    order by stage_index
+  `) as Record<string, unknown>[];
+  if (missing.length > 0) {
+    const names = missing.map((m) => String(m.stage_name)).join(', ');
+    throw new Error(`Fill plan start & end for every stage before submitting. Missing: ${names}`);
+  }
+  await sql`
+    update stage_schedules set baseline_start = plan_start, baseline_end = plan_end
+    where sub_project_id = ${subProjectId} and baseline_start is null
+  `;
+  const rows = (await sql`
+    update sub_projects
+      set schedule_status = 'submitted', schedule_submitted_at = now(), schedule_submitted_by = ${userId}
+    where id = ${subProjectId}
+    returning *
+  `) as Record<string, unknown>[];
+  if (!rows[0]) throw new Error('Sub project not found');
+  return mapSub(rows[0]);
+}
+
+/**
+ * Notify the PIC + overseer (minus the editor) that a submitted plan was
+ * amended. Only for plan edits after submit — actual-progress edits stay silent.
+ */
+export async function notifyScheduleChangeAction(input: {
+  subProjectId: string;
+  subProjectName: string;
+  editorId: string;
+  editorName: string;
+  changedStageNames: string[];
+}): Promise<void> {
+  const sql = requireSql();
+  // the PIC lookup and the overseer lookup are independent — resolve together
+  const [picRows, overRows] = (await Promise.all([
+    sql`select pic_id from sub_projects where id = ${input.subProjectId}`,
+    sql`select id from users where username = ${SCHEDULE_OVERSEER_USERNAME} limit 1`,
+  ])) as Record<string, unknown>[][];
+  const picId = picRows[0]?.pic_id ? String(picRows[0].pic_id) : null;
+  const overseerIds = overRows[0]?.id
+    ? [String(overRows[0].id)]
+    : ((await sql`select id from users where role = 'ADMIN'`) as Record<string, unknown>[]).map((r) => String(r.id));
+  const recipients = computeScheduleRecipients({ picId, overseerIds, editorId: input.editorId });
+  if (recipients.length === 0) return;
+  const n = input.changedStageNames.length;
+  const title = `Schedule changed: ${input.subProjectName}`;
+  const body = `${input.editorName} amended the plan (${n} stage${n === 1 ? '' : 's'}: ${input.changedStageNames.join(', ')})`;
+  for (const uid of recipients) {
+    await createNotificationAction({
+      userId: uid,
+      kind: 'schedule_changed',
+      title,
+      body,
+      refType: 'sub_project',
+      refId: input.subProjectId,
+    });
+  }
 }
 
 // ─── Stage checkpoints (todolist per stage) ───────────────────────────────

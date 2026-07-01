@@ -71,6 +71,9 @@ export interface SubProject {
   progress: number; // 0..100 - auto from stages
   status: Status;
   remarks?: string;
+  scheduleStatus: 'draft' | 'submitted'; // schedule lifecycle for the stage gantt
+  scheduleSubmittedAt?: string;
+  scheduleSubmittedBy?: string; // user id
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +86,8 @@ export interface StageSchedule {
   planStart?: string;
   planEnd?: string;
   plannedDurationDays: number; // auto
+  baselineStart?: string; // original plan, snapshotted on first Submit
+  baselineEnd?: string;
   actualStart?: string;
   actualEnd?: string;
   actualDurationDays: number; // auto
@@ -150,6 +155,7 @@ export type NotificationKind =
   | 'stage_lead_time'   // 14/7/3/2/1 day
   | 'stage_delayed'
   | 'project_delayed'
+  | 'schedule_changed'  // plan amended after Submit
   | 'system';
 
 export interface NotificationItem {

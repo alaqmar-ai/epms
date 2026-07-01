@@ -36,13 +36,16 @@ export type SourceType = (typeof SOURCES)[number];
 
 // Project categories (free reference list - admin-extendable later)
 export const CATEGORIES = [
-  'New Model',
-  'Replacement',
-  'Upgrade',
-  'Kaizen',
-  'Safety',
-  'Cost-down',
+  'New',
+  'Modify',
+  'Carry Over',
+  'Job Request',
+  'Machine Upgrading',
 ] as const;
+
+// Who is notified when a submitted schedule's plan is amended (besides the PIC).
+// Resolved by username at notify-time; falls back to all admins if not found.
+export const SCHEDULE_OVERSEER_USERNAME = 'faris';
 
 // Stage / project status set per spec
 export const STATUSES = [

@@ -1,13 +1,13 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, ChevronRight, ChevronDown, ListChecks } from 'lucide-react';
+import { ArrowLeft, Save, ChevronRight, ChevronDown, ListChecks, Pencil, Plus, Check } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusPill from '@/components/ui/StatusPill';
-import StageGantt from '@/components/StageGantt';
+import ScheduleGrid from '@/components/ScheduleGrid';
 import StageCheckpoints from '@/components/StageCheckpoints';
 import {
   listSubProjects,
@@ -16,6 +16,8 @@ import {
   updateSubProject,
   listMajorProjects,
   listCheckpointsForStages,
+  submitSchedule,
+  notifyScheduleChange,
 } from '@/lib/data/store';
 import { useUsers } from '@/hooks/useUsers';
 import type { SubProject, StageSchedule, MajorProject, Status, StageCheckpoint } from '@/lib/types';
@@ -37,6 +39,9 @@ export default function SubProjectDetailPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [mode, setMode] = useState<'view' | 'plan' | 'actual'>('view');
+  const [submitting, setSubmitting] = useState(false);
+  const amendedRef = useRef<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -73,7 +78,11 @@ export default function SubProjectDetailPage() {
 
   const canEdit = isAdmin(user) || (sub && sub.picId === user?.id);
 
-  const handleStageSave = async (stage: StageSchedule, patch: Partial<StageSchedule>) => {
+  const handleStageSave = async (
+    stage: StageSchedule,
+    patch: Partial<StageSchedule>,
+    opts?: { silent?: boolean }
+  ) => {
     setSaving(stage.id);
     try {
       const next: StageSchedule = {
@@ -108,11 +117,64 @@ export default function SubProjectDetailPage() {
         await updateSubProject(sub.id, { progress: newProgress, status: newStatus });
         setSub({ ...sub, progress: newProgress, status: newStatus });
       }
-      addToast('success', 'Stage saved');
+      if (!opts?.silent) addToast('success', 'Stage saved');
     } catch (e) {
       addToast('error', (e as Error).message);
     } finally {
       setSaving(null);
+    }
+  };
+
+  // ── Schedule grid: commit one bar, submit (baseline-lock), edit-plan session ──
+  const handleGridCommit = async (
+    stageId: string,
+    patch: { planStart?: string; planEnd?: string; actualStart?: string; actualEnd?: string }
+  ) => {
+    const stage = stages.find((s) => s.id === stageId);
+    if (!stage) return;
+    await handleStageSave(stage, patch, { silent: true });
+    if (mode === 'plan' && sub?.scheduleStatus === 'submitted') {
+      amendedRef.current.add(stage.stageName);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!sub || !user) return;
+    setSubmitting(true);
+    try {
+      const updated = await submitSchedule(sub.id, user.id);
+      setSub(updated);
+      setStages(await listStages(sub.id)); // refresh to pick up baseline snapshot
+      setMode('view');
+      addToast('success', 'Schedule submitted');
+    } catch (e) {
+      addToast('error', (e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const startPlanEdit = () => {
+    amendedRef.current = new Set();
+    setMode('plan');
+  };
+
+  const finishPlanEdit = async () => {
+    const names = Array.from(amendedRef.current);
+    amendedRef.current = new Set();
+    setMode('view');
+    if (names.length > 0 && sub && user) {
+      try {
+        await notifyScheduleChange({
+          subProjectId: sub.id,
+          subProjectName: sub.projectName,
+          editorId: user.id,
+          editorName: user.name,
+          changedStageNames: names,
+        });
+      } catch {
+        /* notification is best-effort; the edit already persisted */
+      }
     }
   };
 
@@ -169,9 +231,92 @@ export default function SubProjectDetailPage() {
         <SummaryStat label="Progress" value={`${Math.round(sub.progress)}%`} mono />
       </div>
 
-      {/* Gantt timeline (plan dotted, actual solid) */}
+      {/* Schedule — draggable plan vs actual */}
       <div className="mb-6">
-        <StageGantt stages={stages} />
+        <div className="flex items-center gap-2.5 flex-wrap mb-3">
+          <h3 className="text-sm font-semibold text-text-primary mr-1">Schedule</h3>
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+              sub.scheduleStatus === 'submitted'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {sub.scheduleStatus === 'submitted' ? 'Submitted' : 'Draft'}
+          </span>
+          <span className="flex-1" />
+
+          {canEdit && mode === 'view' && sub.scheduleStatus === 'draft' && (
+            <button className="btn-primary inline-flex items-center gap-1.5" onClick={() => setMode('plan')}>
+              <Pencil size={14} /> Detailed Schedule
+            </button>
+          )}
+          {canEdit && mode === 'view' && sub.scheduleStatus === 'submitted' && (
+            <>
+              <button className="btn-ghost inline-flex items-center gap-1.5" onClick={startPlanEdit}>
+                <Pencil size={14} /> Edit Plan
+              </button>
+              <button className="btn-ghost inline-flex items-center gap-1.5" onClick={() => setMode('actual')}>
+                <Plus size={14} /> Update Actual
+              </button>
+            </>
+          )}
+          {canEdit && mode === 'plan' && sub.scheduleStatus === 'draft' && (
+            <>
+              <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Submit schedule'}
+              </button>
+              <button className="btn-ghost" onClick={() => setMode('view')}>
+                Done
+              </button>
+            </>
+          )}
+          {canEdit && mode === 'plan' && sub.scheduleStatus === 'submitted' && (
+            <button className="btn-primary inline-flex items-center gap-1.5" onClick={finishPlanEdit}>
+              <Check size={14} /> Done editing
+            </button>
+          )}
+          {canEdit && mode === 'actual' && (
+            <button className="btn-primary inline-flex items-center gap-1.5" onClick={() => setMode('view')}>
+              <Check size={14} /> Done
+            </button>
+          )}
+        </div>
+
+        {mode !== 'view' && (
+          <p className="text-xs text-text-muted mb-2">
+            {mode === 'plan'
+              ? 'Drag a bar’s ends to stretch it or its middle to move it; drag across an empty row to create one. Fill every stage, then Submit.'
+              : 'Lay the actual (green) bars as work really happens — updating actuals never notifies anyone.'}
+          </p>
+        )}
+
+        <ScheduleGrid
+          stages={stages}
+          mode={mode}
+          plannedStart={sub.plannedStart}
+          plannedEnd={sub.plannedEnd}
+          onCommit={handleGridCommit}
+        />
+
+        <div className="flex items-center gap-4 mt-2 text-[11px] text-text-muted flex-wrap px-1">
+          <Legend color="#2563EB" label="Plan" />
+          <Legend color="#10B981" label="Actual" />
+          <Legend color="#EF4444" label="Ran over" />
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="w-4 h-[8px] rounded-sm"
+              style={{
+                background: 'repeating-linear-gradient(45deg,#CBD5E1 0 3px,#E2E8F0 3px 6px)',
+                border: '1px dashed #94A3B8',
+              }}
+            />
+            Original plan
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-[2px] h-3 bg-amber-500" /> Today
+          </span>
+        </div>
       </div>
 
       <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
@@ -207,6 +352,7 @@ export default function SubProjectDetailPage() {
                     <StageRowEditable
                       stage={st}
                       canEdit={!!canEdit}
+                      planLocked={sub.scheduleStatus === 'submitted'}
                       saving={saving === st.id}
                       expanded={isOpen}
                       onToggleExpand={() => toggleExpand(st.id)}
@@ -248,9 +394,19 @@ function SummaryStat({ label, value, mono }: { label: string; value: string; mon
   );
 }
 
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="w-4 h-[8px] rounded-sm" style={{ background: color }} />
+      {label}
+    </span>
+  );
+}
+
 function StageRowEditable({
   stage,
   canEdit,
+  planLocked,
   saving,
   expanded,
   onToggleExpand,
@@ -260,6 +416,7 @@ function StageRowEditable({
 }: {
   stage: StageSchedule;
   canEdit: boolean;
+  planLocked: boolean;
   saving: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -325,18 +482,20 @@ function StageRowEditable({
       <td className="px-3 py-3">
         <input
           type="date"
-          disabled={!canEdit}
+          disabled={!canEdit || planLocked}
           value={planStart}
           onChange={(e) => setPlanStart(e.target.value)}
+          title={planLocked ? 'Plan is submitted — use “Edit Plan” on the schedule to change it' : undefined}
           className="input-styled text-xs font-mono py-1"
         />
       </td>
       <td className="px-3 py-3">
         <input
           type="date"
-          disabled={!canEdit}
+          disabled={!canEdit || planLocked}
           value={planEnd}
           onChange={(e) => setPlanEnd(e.target.value)}
+          title={planLocked ? 'Plan is submitted — use “Edit Plan” on the schedule to change it' : undefined}
           className="input-styled text-xs font-mono py-1"
         />
       </td>

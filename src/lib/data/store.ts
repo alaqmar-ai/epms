@@ -22,7 +22,8 @@ import type {
   HolidayKind,
   NotificationKind,
 } from '@/lib/types';
-import { STAGES } from '@/lib/constants';
+import { STAGES, SCHEDULE_OVERSEER_USERNAME } from '@/lib/constants';
+import { computeScheduleRecipients } from '@/lib/schedule';
 import * as srv from '@/app/actions/data';
 
 export const useNeon = process.env.NEXT_PUBLIC_USE_NEON?.trim() === 'true';
@@ -262,6 +263,7 @@ export async function createSubProject(input: {
     progress: 0,
     status: 'Pending',
     remarks: input.remarks,
+    scheduleStatus: 'draft',
     createdAt: now,
     updatedAt: now,
   };
@@ -347,6 +349,61 @@ export async function updateStage(id: string, patch: Partial<StageSchedule>): Pr
   save(KEY.stages, all);
   logActivityLocal({ userId: actorId(), action: 'update_stage', refType: 'stage', refId: id, before, after: all[i] });
   return all[i];
+}
+
+/** Submit (baseline-lock) a sub-project schedule. See submitScheduleAction. */
+export async function submitSchedule(subProjectId: string, userId: string): Promise<SubProject> {
+  if (useNeon) {
+    const sub = await srv.submitScheduleAction(subProjectId, userId);
+    await srv.logActivityAction({ userId, action: 'submit_schedule', refType: 'sub_project', refId: subProjectId, after: sub });
+    return sub;
+  }
+  const stages = load<StageSchedule[]>(KEY.stages, []);
+  const mine = stages.filter((s) => s.subProjectId === subProjectId);
+  const missing = mine.filter((s) => !s.planStart || !s.planEnd).map((s) => s.stageName);
+  if (missing.length > 0) {
+    throw new Error(`Fill plan start & end for every stage before submitting. Missing: ${missing.join(', ')}`);
+  }
+  for (const s of stages) {
+    if (s.subProjectId === subProjectId && !s.baselineStart) {
+      s.baselineStart = s.planStart;
+      s.baselineEnd = s.planEnd;
+    }
+  }
+  save(KEY.stages, stages);
+  const subs = load<SubProject[]>(KEY.subs, []);
+  const i = subs.findIndex((s) => s.id === subProjectId);
+  if (i < 0) throw new Error('Sub project not found');
+  subs[i] = { ...subs[i], scheduleStatus: 'submitted', scheduleSubmittedAt: nowIso(), scheduleSubmittedBy: userId, updatedAt: nowIso() };
+  save(KEY.subs, subs);
+  return subs[i];
+}
+
+/** Notify PIC + overseer (minus editor) that a submitted plan was amended. */
+export async function notifyScheduleChange(input: {
+  subProjectId: string;
+  subProjectName: string;
+  editorId: string;
+  editorName: string;
+  changedStageNames: string[];
+}): Promise<void> {
+  if (useNeon) return srv.notifyScheduleChangeAction(input);
+  const users = load<User[]>(KEY.users, []);
+  const sub = load<SubProject[]>(KEY.subs, []).find((s) => s.id === input.subProjectId);
+  const overseer = users.find((u) => u.username === SCHEDULE_OVERSEER_USERNAME);
+  const overseerIds = overseer ? [overseer.id] : users.filter((u) => u.role === 'ADMIN').map((u) => u.id);
+  const recipients = computeScheduleRecipients({ picId: sub?.picId ?? null, overseerIds, editorId: input.editorId });
+  const n = input.changedStageNames.length;
+  for (const uid of recipients) {
+    await createNotification({
+      userId: uid,
+      kind: 'schedule_changed',
+      title: `Schedule changed: ${input.subProjectName}`,
+      body: `${input.editorName} amended the plan (${n} stage${n === 1 ? '' : 's'}: ${input.changedStageNames.join(', ')})`,
+      refType: 'sub_project',
+      refId: input.subProjectId,
+    });
+  }
 }
 
 // ─── Stage checkpoints (todolist per stage) ────────────────────────────────
