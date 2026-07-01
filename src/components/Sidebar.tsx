@@ -13,6 +13,7 @@ import {
   Users as UsersIcon,
   Settings,
   ClipboardList,
+  Info,
   LogOut,
   Menu,
   X,
@@ -44,6 +45,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/reports', label: 'Reports', icon: FileBarChart },
   { href: '/users', label: 'User Management', icon: UsersIcon },
+  { href: '/information', label: 'Information', icon: Info },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -54,6 +56,7 @@ const STAFF_NAV: NavItem[] = [
   { href: '/attendance', label: 'Attendance Calendar', icon: CalendarDays },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/reports', label: 'Reports', icon: FileBarChart },
+  { href: '/information', label: 'Information', icon: Info },
   { href: '/settings', label: 'Account', icon: Settings },
 ];
 
